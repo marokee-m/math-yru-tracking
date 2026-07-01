@@ -484,38 +484,45 @@ window.ProgressRing = function({ value, max, color, size = 80, label, sublabel }
 };
 
 // Modal
-window.Modal = function({ open, onClose, title, children, width = '580px' }) {
-  // Lock body scroll when open
+window.Modal = function({ open, onClose, title, children, width }) {
+  width = width || '580px';
   React.useEffect(function() {
-    if (open) {
-      document.body.classList.add('modal-open');
-    } else {
-      document.body.classList.remove('modal-open');
-    }
+    if (open) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
     return function() { document.body.classList.remove('modal-open'); };
   }, [open]);
 
   if (!open) return null;
-  return React.createElement('div', {
+
+  // Portal → render ที่ document.body โดยตรง หลีกเลี่ยงปัญหา stacking context
+  var content = React.createElement('div', {
     className: 'modal-overlay',
     onClick: function(e) { if (e.target === e.currentTarget) onClose(); }
   },
     React.createElement('div', {
-      className: 'modal-box fade-in',
-      style: { width: width, maxWidth: '95vw', maxHeight: '88vh', overflowY: 'auto', padding: '28px 28px 24px' }
+      className: 'modal-box',
+      style: { width: width, maxWidth: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }
     },
-      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 } },
-        React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: '#1f2937' } }, title),
+      // Header — fixed inside modal
+      React.createElement('div', {
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '22px 24px 16px', borderBottom: '1px solid rgba(0,0,0,0.07)', flexShrink: 0 }
+      },
+        React.createElement('h2', { style: { fontSize: 17, fontWeight: 700, color: '#1f2937' } }, title),
         React.createElement('button', {
           onClick: onClose,
-          style: { background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', lineHeight: 1 }
+          style: { background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }
         },
           React.createElement(window.Icon, { name: 'close', size: 18, color: '#6b7280' })
         )
       ),
-      children
+      // Body — scrollable
+      React.createElement('div', {
+        style: { overflowY: 'auto', padding: '20px 24px 24px', flex: 1 }
+      }, children)
     )
   );
+
+  return ReactDOM.createPortal(content, document.body);
 };
 
 // Confirm Dialog
@@ -527,15 +534,18 @@ window.ConfirmDialog = function({ open, message, onConfirm, onCancel }) {
   }, [open]);
 
   if (!open) return null;
-  return React.createElement('div', { className: 'modal-overlay' },
-    React.createElement('div', { className: 'modal-box', style: { padding: 32, maxWidth: 360, width: '90%', textAlign: 'center' } },
-      React.createElement('div', { style: { fontSize: 44, marginBottom: 14 } }, '⚠️'),
-      React.createElement('p', { style: { fontSize: 15, color: '#374151', marginBottom: 24, lineHeight: 1.6 } }, message),
-      React.createElement('div', { style: { display: 'flex', gap: 12, justifyContent: 'center' } },
-        React.createElement('button', { className: 'btn-secondary', onClick: onCancel }, 'ยกเลิก'),
-        React.createElement('button', { className: 'btn-danger', onClick: onConfirm }, 'ยืนยัน')
+  return ReactDOM.createPortal(
+    React.createElement('div', { className: 'modal-overlay' },
+      React.createElement('div', { className: 'modal-box', style: { padding: 32, maxWidth: 360, width: '90%', textAlign: 'center' } },
+        React.createElement('div', { style: { fontSize: 44, marginBottom: 14 } }, '⚠️'),
+        React.createElement('p', { style: { fontSize: 15, color: '#374151', marginBottom: 24, lineHeight: 1.6 } }, message),
+        React.createElement('div', { style: { display: 'flex', gap: 12, justifyContent: 'center' } },
+          React.createElement('button', { className: 'btn-secondary', onClick: onCancel }, 'ยกเลิก'),
+          React.createElement('button', { className: 'btn-danger', onClick: onConfirm }, 'ยืนยัน')
+        )
       )
-    )
+    ),
+    document.body
   );
 };
 
