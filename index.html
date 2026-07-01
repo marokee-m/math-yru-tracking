@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบกำกับติดตามการเรียนของนักศึกษา | YRU</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React 18 -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Firebase 10 (compat mode — ใช้ได้โดยไม่ต้อง build tool) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <!-- Google Fonts: Sarabun (Thai) -->
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 20%, #e8eaf6 50%, #e0e0e0 80%, #fce4ec 100%);
+      background-attachment: fixed;
+      color: #374151;
+    }
+
+    /* Animated background orbs */
+    .bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(60px);
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: 0;
+      animation: float 8s ease-in-out infinite;
+    }
+    .bg-orb-1 { width: 400px; height: 400px; background: #f48fb1; top: -100px; left: -100px; animation-delay: 0s; }
+    .bg-orb-2 { width: 300px; height: 300px; background: #ce93d8; top: 50%; right: -80px; animation-delay: 3s; }
+    .bg-orb-3 { width: 350px; height: 350px; background: #90caf9; bottom: -100px; left: 30%; animation-delay: 6s; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(-20px) scale(1.05); }
+    }
+
+    /* Glassmorphism card */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(236, 64, 122, 0.08), 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .glass-card-dark {
+      background: rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 20px;
+      box-shadow: 0 12px 40px rgba(236, 64, 122, 0.12), 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    /* Navbar glass */
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.55);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 4px 24px rgba(236, 64, 122, 0.08);
+    }
+
+    /* Sidebar glass */
+    .glass-sidebar {
+      background: rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-right: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 4px 0 24px rgba(236, 64, 122, 0.06);
+    }
+
+    /* Input glass */
+    .glass-input {
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: 12px;
+      transition: all 0.3s ease;
+    }
+    .glass-input:focus {
+      background: rgba(255, 255, 255, 0.85);
+      border-color: #f48fb1;
+      box-shadow: 0 0 0 3px rgba(244, 143, 177, 0.2);
+      outline: none;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      background: linear-gradient(135deg, #e91e8c 0%, #ec407a 50%, #f06292 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 24px;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(233, 30, 140, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(233, 30, 140, 0.4);
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(8px);
+      color: #4a4a6a;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 12px;
+      padding: 10px 24px;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.85);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #e53935 0%, #ef5350 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 8px 18px;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-danger:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+    .btn-ghost {
+      background: transparent;
+      color: #6b7280;
+      border: 1px solid rgba(107,114,128,0.3);
+      border-radius: 10px;
+      padding: 8px 16px;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.5); color: #374151; }
+
+    /* Status badges */
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .badge-pass { background: rgba(34, 197, 94, 0.15); color: #15803d; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .badge-studying { background: rgba(59, 130, 246, 0.15); color: #1d4ed8; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-fail { background: rgba(239, 68, 68, 0.15); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-withdraw { background: rgba(156, 163, 175, 0.2); color: #6b7280; border: 1px solid rgba(156, 163, 175, 0.4); }
+    .badge-not-taken { background: rgba(249, 115, 22, 0.12); color: #c2410c; border: 1px solid rgba(249, 115, 22, 0.3); }
+    .badge-warning { background: rgba(234, 179, 8, 0.15); color: #854d0e; border: 1px solid rgba(234, 179, 8, 0.3); }
+
+    /* Sidebar nav item */
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-size: 15px;
+      color: #4b5563;
+      border: 1px solid transparent;
+      margin-bottom: 4px;
+    }
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.6);
+      color: #1f2937;
+      border-color: rgba(255,255,255,0.7);
+    }
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(233, 30, 140, 0.12) 0%, rgba(240, 98, 146, 0.1) 100%);
+      color: #be185d;
+      border-color: rgba(233, 30, 140, 0.25);
+      font-weight: 600;
+    }
+
+    /* Role selector card hover */
+    .role-card {
+      transition: all 0.35s ease;
+      cursor: pointer;
+    }
+    .role-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 16px 48px rgba(236, 64, 122, 0.2);
+    }
+
+    /* Table styles */
+    .glass-table { width: 100%; border-collapse: collapse; }
+    .glass-table th {
+      background: rgba(255,255,255,0.4);
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid rgba(255,255,255,0.5);
+    }
+    .glass-table td {
+      padding: 12px 16px;
+      font-size: 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+      vertical-align: middle;
+    }
+    .glass-table tr:last-child td { border-bottom: none; }
+    .glass-table tbody tr:hover { background: rgba(255,255,255,0.3); }
+
+    /* Progress bar */
+    .progress-bar-bg { background: rgba(255,255,255,0.4); border-radius: 99px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(236, 64, 122, 0.3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(236, 64, 122, 0.5); }
+
+    /* Checklist course row */
+    .course-row-pass { background: rgba(34, 197, 94, 0.08); border-left: 4px solid #22c55e; }
+    .course-row-studying { background: rgba(59, 130, 246, 0.08); border-left: 4px solid #3b82f6; }
+    .course-row-fail { background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444; }
+    .course-row-not-taken { background: rgba(249, 115, 22, 0.06); border-left: 4px solid #f97316; }
+
+    /* Modal overlay — truly fixed center, never scrolls with page */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(30, 20, 40, 0.45);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+    }
+    /* White modal box */
+    .modal-box {
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.9);
+      border-radius: 20px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.18), 0 4px 16px rgba(233,30,140,0.10);
+      margin: auto;
+    }
+    /* Lock body scroll when modal open */
+    body.modal-open { overflow: hidden; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .glass-sidebar { position: fixed; left: -100%; top: 0; bottom: 0; z-index: 200; width: 260px; transition: left 0.3s ease; }
+      .glass-sidebar.open { left: 0; }
+      .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 199; }
+      .sidebar-overlay.open { display: block; }
+
+      /* Mobile navbar fix */
+      .glass-nav { padding: 0 12px !important; }
+      .nav-center-title { display: none !important; }
+      .nav-logo-text { display: none !important; }
+    }
+    @media (max-width: 480px) {
+      .glass-card { border-radius: 12px; padding: 14px !important; }
+      .glass-table { font-size: 13px; }
+      .glass-table th, .glass-table td { padding: 8px 10px; }
+    }
+
+    /* Animations */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.4s ease forwards; }
+
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+    .slide-in { animation: slideIn 0.35s ease forwards; }
+
+    /* Grade color chips */
+    .grade-A { background: #dcfce7; color: #15803d; }
+    .grade-Bplus { background: #d1fae5; color: #065f46; }
+    .grade-B { background: #d1fae5; color: #065f46; }
+    .grade-Cplus { background: #fef9c3; color: #854d0e; }
+    .grade-C { background: #fef9c3; color: #854d0e; }
+    .grade-Dplus { background: #ffedd5; color: #9a3412; }
+    .grade-D { background: #ffedd5; color: #9a3412; }
+    .grade-F { background: #fee2e2; color: #dc2626; }
+    .grade-E { background: #fee2e2; color: #dc2626; }
+    .grade-W { background: #f3f4f6; color: #6b7280; }
+    .grade-studying { background: #dbeafe; color: #1d4ed8; }
+
+    /* Donut chart container */
+    .donut-container { position: relative; }
+    .donut-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+
+    /* Print styles */
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white; }
+      .glass-card, .glass-card-dark { background: white; backdrop-filter: none; box-shadow: none; border: 1px solid #ddd; }
+    }
+
+    /* Select element style */
+    select.glass-input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    /* Tooltip */
+    .tooltip { position: relative; }
+    .tooltip-text {
+      visibility: hidden;
+      background: rgba(30,30,50,0.9);
+      color: white;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      z-index: 100;
+    }
+    .tooltip:hover .tooltip-text { visibility: visible; }
+
+    /* Stat card gradient backgrounds */
+    .stat-pink { background: linear-gradient(135deg, rgba(244,143,177,0.35), rgba(240,98,146,0.2)); border: 1px solid rgba(244,143,177,0.4); }
+    .stat-blue { background: linear-gradient(135deg, rgba(147,197,253,0.35), rgba(96,165,250,0.2)); border: 1px solid rgba(147,197,253,0.4); }
+    .stat-green { background: linear-gradient(135deg, rgba(134,239,172,0.35), rgba(74,222,128,0.2)); border: 1px solid rgba(134,239,172,0.4); }
+    .stat-orange { background: linear-gradient(135deg, rgba(253,186,116,0.35), rgba(251,146,60,0.2)); border: 1px solid rgba(253,186,116,0.4); }
+    .stat-red { background: linear-gradient(135deg, rgba(252,165,165,0.35), rgba(248,113,113,0.2)); border: 1px solid rgba(252,165,165,0.4); }
+    .stat-purple { background: linear-gradient(135deg, rgba(196,181,253,0.35), rgba(167,139,250,0.2)); border: 1px solid rgba(196,181,253,0.4); }
+  </style>
+
+  <script>
+    // Tailwind config
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+          colors: {
+            pink: {
+              50: '#fdf2f8', 100: '#fce7f3', 200: '#fbcfe8',
+              300: '#f9a8d4', 400: '#f472b6', 500: '#ec4899',
+              600: '#db2777', 700: '#be185d', 800: '#9d174d', 900: '#831843'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+  <div class="bg-orb bg-orb-3"></div>
+
+  <div id="root" style="position:relative;z-index:1;min-height:100vh;"></div>
+
+  <!-- 0. Firebase config (แก้ไขค่าใน firebase-config.js) -->
+  <script src="src/firebase-config.js"></script>
+
+  <!-- 1. Data layer (window.AppData + seed) -->
+  <script src="src/data.js"></script>
+
+  <!-- 2. Shared Components + Context + Login (window.Utils, AppProvider, LoginScreen, Navbar...) -->
+  <script src="src/Login.js"></script>
+
+  <!-- 3. Admin Views -->
+  <script src="src/Admin.js"></script>
+
+  <!-- 4. Student Views -->
+  <script src="src/Student.js"></script>
+
+  <!-- 5. Advisor Views -->
+  <script src="src/Advisor.js"></script>
+
+  <!-- 6. Main App Router (mount) -->
+  <script src="src/app.js"></script>
+</body>
+</html>
