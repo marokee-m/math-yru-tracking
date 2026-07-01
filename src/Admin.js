@@ -123,7 +123,8 @@ window.AdminCurriculumView = function() {
     return { ...cat, totalCourses: catCourses.length, totalCredits: total };
   });
 
-  return React.createElement('div', { className: 'fade-in' },
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', { className: 'fade-in' },
     // Page header
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
       React.createElement('div', {},
@@ -220,6 +221,8 @@ window.AdminCurriculumView = function() {
         )
       )
     ),
+
+    ), // end div.fade-in
 
     // Add/Edit Modal
     React.createElement(window.Modal, {
@@ -333,7 +336,7 @@ window.AdminCurriculumView = function() {
       open: !!confirmDelete, message: 'ยืนยันลบรายวิชานี้ออกจากหลักสูตร?',
       onConfirm: () => handleDelete(confirmDelete), onCancel: () => setConfirmDelete(null)
     })
-  );
+  ); // end Fragment
 };
 
 
@@ -452,7 +455,8 @@ window.AdminUserView = function() {
     ? 'รหัสนักศึกษา\tชื่อ-นามสกุล\tpassword\tรหัสอาจารย์\tชั้นปี\n6640112010\tนายทดสอบ ระบบ\t1234\ta001\t1'
     : 'ชื่อ-นามสกุล\tusername\tpassword\tอีเมล\tเบอร์โทร\nผศ.ดร.ทดสอบ ระบบ\tadvisor03\t1234\ttest@yru.ac.th\t073-000-000';
 
-  return React.createElement('div', { className: 'fade-in' },
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', { className: 'fade-in' },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
       React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '👥 จัดการบัญชีผู้ใช้'),
       React.createElement('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
@@ -580,6 +584,8 @@ window.AdminUserView = function() {
       )
     ),
 
+    ), // end div.fade-in
+
     // Add/Edit Modal
     React.createElement(window.Modal, {
       open: showModal, onClose: () => setShowModal(false),
@@ -705,7 +711,7 @@ window.AdminUserView = function() {
       open: !!confirmDelete, message: 'ยืนยันลบข้อมูลนี้?',
       onConfirm: () => handleDelete(confirmDelete), onCancel: () => setConfirmDelete(null)
     })
-  );
+  ); // end Fragment
 };
 
 console.log('✅ Admin views loaded');

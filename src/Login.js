@@ -193,15 +193,19 @@ window.Utils = {
 const AppContext = React.createContext(null);
 
 window.AppProvider = function({ children }) {
-  const [state, setState] = React.useState({
-    loading: true,
-    dbError: null,
-    currentRole: null,
-    currentUserId: null,
-    students: [],
-    advisors: [],
-    courses: [],
-    curriculumMeta: window.AppData.CURRICULUM_META,
+  const [state, setState] = React.useState(function() {
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem('mathyru_session') || '{}'); } catch(e) {}
+    return {
+      loading: true,
+      dbError: null,
+      currentRole: saved.currentRole || null,
+      currentUserId: saved.currentUserId || null,
+      students: [],
+      advisors: [],
+      courses: [],
+      curriculumMeta: window.AppData.CURRICULUM_META,
+    };
   });
 
   // db ref (set once on init)
@@ -264,8 +268,14 @@ window.AppProvider = function({ children }) {
   }
 
   const actions = {
-    login: function(role, userId) { setState(function(s) { return Object.assign({}, s, { currentRole: role, currentUserId: userId }); }); },
-    logout: function() { setState(function(s) { return Object.assign({}, s, { currentRole: null, currentUserId: null }); }); },
+    login: function(role, userId) {
+      try { localStorage.setItem('mathyru_session', JSON.stringify({ currentRole: role, currentUserId: userId })); } catch(e) {}
+      setState(function(s) { return Object.assign({}, s, { currentRole: role, currentUserId: userId }); });
+    },
+    logout: function() {
+      try { localStorage.removeItem('mathyru_session'); } catch(e) {}
+      setState(function(s) { return Object.assign({}, s, { currentRole: null, currentUserId: null }); });
+    },
 
     // Enrollment (write full student doc)
     addEnrollment: function(studentId, enrollment) {
@@ -693,23 +703,11 @@ window.LoginScreen = function() {
         style: { width: '100%', fontSize: 16, padding: '13px', borderRadius: 14, opacity: loading ? 0.7 : 1 }
       }, loading ? '⏳ กำลังตรวจสอบ...' : 'เข้าสู่ระบบ →'),
 
-      // Demo hint
-      React.createElement('div', {
-        style: { marginTop: 20, padding: '12px 16px', background: 'rgba(249,168,212,0.12)', borderRadius: 12, border: '1px solid rgba(249,168,212,0.35)', textAlign: 'left' }
-      },
-        React.createElement('div', { style: { fontSize: 12, color: '#9d174d', fontWeight: 700, marginBottom: 6 } }, '💡 ข้อมูลทดสอบ (Demo)'),
-        React.createElement('div', { style: { fontSize: 12, color: '#6b7280', lineHeight: 1.8 } },
-          React.createElement('span', { style: { color: '#db2777', fontWeight: 600 } }, '🛡️ Admin: '),
-          'admin / admin', React.createElement('br'),
-          React.createElement('span', { style: { color: '#1565c0', fontWeight: 600 } }, '🎓 นักศึกษา: '),
-          'รหัสนักศึกษา (เช่น 6640112001) / 1234', React.createElement('br'),
-          React.createElement('span', { style: { color: '#15803d', fontWeight: 600 } }, '👨‍🏫 อาจารย์: '),
-          'malee หรือ somsak / advisor1234'
-        )
-      )
     ),
-    React.createElement('p', { style: { marginTop: 20, fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center' } },
-      '© 2567 สาขาวิชาคณิตศาสตร์ มหาวิทยาลัยราชภัฏยะลา'
+    React.createElement('p', { style: { marginTop: 20, fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 1.7 } },
+      'พัฒนาโดย อาจารย์มะรอกี แมเดาะ', React.createElement('br'),
+      'สาขาวิชาคณิตศาสตร์ คณะวิทยาศาสตร์เทคโนโลยีและการเกษตร', React.createElement('br'),
+      'มหาวิทยาลัยราชภัฏยะลา'
     )
   );
 };
