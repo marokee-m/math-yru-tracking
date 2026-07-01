@@ -315,6 +315,59 @@ window.StudentChecklistView = function({ studentId: propStudentId }) {
       )
     ),
 
+    // Teaching Practice Eligibility Card
+    (() => {
+      var tpCheck = window.Utils.checkTeachingPractice(student, courses);
+      return React.createElement('div', { className: 'glass-card', style: { padding: '18px 20px', marginBottom: 20, border: '2px solid ' + (tpCheck.eligible ? (tpCheck.trend === 'at-risk' ? '#f59e0b' : '#22c55e') : '#ef4444') } },
+        // Header row
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: tpCheck.efCourses.length > 0 ? 14 : 0 } },
+          React.createElement('div', { style: { fontSize: 32 } }, tpCheck.eligible ? (tpCheck.trend === 'at-risk' ? '⚠️' : '✅') : '🚫'),
+          React.createElement('div', { style: { flex: 1 } },
+            React.createElement('div', { style: { fontSize: 16, fontWeight: 800, color: tpCheck.eligible ? (tpCheck.trend === 'at-risk' ? '#d97706' : '#15803d') : '#dc2626' } },
+              tpCheck.eligible
+                ? (tpCheck.trend === 'at-risk' ? 'มีความเสี่ยง — ต้องระวัง' : 'สามารถออกฝึกสอนได้')
+                : 'ไม่สามารถออกฝึกสอนได้'
+            ),
+            React.createElement('div', { style: { fontSize: 13, color: '#6b7280', marginTop: 2 } },
+              'มีรายวิชาที่ได้ E/F รวม ' + tpCheck.efCredits + ' หน่วยกิต ' +
+              '(เกณฑ์: ไม่เกิน 8 หน่วยกิต)'
+            )
+          ),
+          // Badge
+          React.createElement('div', {
+            style: {
+              padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700,
+              background: tpCheck.eligible ? (tpCheck.trend === 'at-risk' ? 'rgba(245,158,11,0.15)' : 'rgba(34,197,94,0.15)') : 'rgba(239,68,68,0.15)',
+              color: tpCheck.eligible ? (tpCheck.trend === 'at-risk' ? '#d97706' : '#15803d') : '#dc2626'
+            }
+          },
+            tpCheck.trend === 'safe' ? '✓ ผ่านเกณฑ์' : tpCheck.trend === 'at-risk' ? '⚠ เสี่ยง' : '✗ ไม่ผ่านเกณฑ์'
+          )
+        ),
+        // แสดงรายวิชาที่ E/F (ถ้ามี)
+        tpCheck.efCourses.length > 0 && React.createElement('div', { style: { borderTop: '1px solid rgba(0,0,0,0.07)', paddingTop: 12 } },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 8 } }, 'รายวิชาที่ได้ E/F:'),
+          React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+            tpCheck.efCourses.map(function(c) {
+              return React.createElement('div', { key: c.code, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', background: 'rgba(239,68,68,0.06)', borderRadius: 8 } },
+                React.createElement('code', { style: { fontSize: 12, color: '#6b7280', minWidth: 70 } }, c.code),
+                React.createElement('span', { style: { flex: 1, fontSize: 13 } }, c.name),
+                React.createElement('span', { style: { fontSize: 12, color: '#6b7280' } }, c.credits + ' cr'),
+                React.createElement('span', { style: { fontSize: 12, fontWeight: 700, color: '#dc2626', background: 'rgba(239,68,68,0.1)', padding: '2px 8px', borderRadius: 12 } }, c.grade)
+              );
+            })
+          ),
+          // Trend message
+          tpCheck.trend === 'at-risk' && React.createElement('div', { style: { marginTop: 10, padding: '8px 12px', background: 'rgba(245,158,11,0.1)', borderRadius: 8, fontSize: 13, color: '#92400e' } },
+            '💡 แนวโน้ม: หากมีรายวิชา E/F เพิ่มอีก ' + (9 - tpCheck.efCredits) + ' หน่วยกิต จะไม่สามารถออกฝึกสอนได้'
+          ),
+          tpCheck.trend === 'ineligible' && React.createElement('div', { style: { marginTop: 10, padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: 8, fontSize: 13, color: '#991b1b' } },
+            '📋 ต้องแก้ไขรายวิชาที่ติด E/F ให้เหลือน้อยกว่า 9 หน่วยกิต จึงจะสามารถออกฝึกสอนได้'
+          )
+        )
+      );
+    })(),
+
     // Per-category detailed checklist
     curriculumMeta.categories.map((cat, ci) => {
       const cs = statusMap[cat.id];

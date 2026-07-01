@@ -186,6 +186,35 @@ window.Utils = {
       'W': 'grade-W', 'กำลังเรียน': 'grade-studying'
     };
     return map[grade] || 'grade-W';
+  },
+
+  // Check teaching practice (ฝึกสอน) eligibility
+  // Rule: E/F courses with total credits >= 9 → ineligible
+  checkTeachingPractice: function(student, courses) {
+    var latest = {};
+    (student.enrollments || []).forEach(function(e) {
+      var key = e.courseCode;
+      if (!latest[key] || (e.year * 10 + e.semester) > (latest[key].year * 10 + latest[key].semester)) {
+        latest[key] = e;
+      }
+    });
+    var efCourses = [];
+    var efCredits = 0;
+    Object.values(latest).forEach(function(e) {
+      if (e.grade === 'E' || e.grade === 'F') {
+        var course = courses.find(function(c) { return c.code === e.courseCode; });
+        var cr = course ? course.credits : 0;
+        efCredits += cr;
+        efCourses.push({ code: e.courseCode, name: course ? course.name : e.courseCode, credits: cr, grade: e.grade });
+      }
+    });
+    var trend = efCredits === 0 ? 'safe' : efCredits < 6 ? 'safe' : efCredits < 9 ? 'at-risk' : 'ineligible';
+    return {
+      eligible: efCredits < 9,
+      efCredits: efCredits,
+      efCourses: efCourses,
+      trend: trend
+    };
   }
 };
 
@@ -246,6 +275,13 @@ window.AppProvider = function({ children }) {
 
       var unsubC = db.collection('courses').onSnapshot(function(snap) {
         trySetReady('courses', snap.docs.map(function(d) { return d.data(); }));
+      });
+
+      // Listen to curriculum settings
+      db.collection('settings').doc('curriculum').onSnapshot(function(doc) {
+        if (doc.exists) {
+          setState(function(s) { return Object.assign({}, s, { curriculumMeta: doc.data() }); });
+        }
       });
 
       // store cleanup
@@ -337,6 +373,11 @@ window.AppProvider = function({ children }) {
     },
     deleteStudent: function(id) {
       if (dbRef.current) dbRef.current.collection('students').doc(id).delete();
+    },
+
+    updateCurriculumMeta: function(meta) {
+      if (dbRef.current) dbRef.current.collection('settings').doc('curriculum').set(meta);
+      setState(function(s) { return Object.assign({}, s, { curriculumMeta: meta }); });
     },
 
     // Advisors

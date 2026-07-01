@@ -22,6 +22,22 @@ window.AdminCurriculumView = function() {
     code: '', name: '', credits: 3, category: 'general', year: 1, semester: 1, isElective: false
   });
 
+  const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+  const [settingsForm, setSettingsForm] = React.useState(null);
+
+  const openSettings = () => {
+    setSettingsForm(JSON.parse(JSON.stringify(curriculumMeta)));
+    setShowSettingsModal(true);
+  };
+
+  const handleSaveSettings = () => {
+    if (!settingsForm) return;
+    var totalRequired = settingsForm.categories.reduce(function(s, c) { return s + c.requiredCredits; }, 0);
+    var updated = Object.assign({}, settingsForm, { totalCredits: totalRequired });
+    actions.updateCurriculumMeta(updated);
+    setShowSettingsModal(false);
+  };
+
   const categories = curriculumMeta.categories;
 
   const filtered = courses.filter(c => {
@@ -132,6 +148,7 @@ window.AdminCurriculumView = function() {
         React.createElement('p', { style: { fontSize: 13, color: '#6b7280' } }, curriculumMeta.name + ' — ' + curriculumMeta.totalCredits + ' หน่วยกิตรวม')
       ),
       React.createElement('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
+        React.createElement('button', { className: 'btn-ghost', onClick: openSettings, style: { fontSize: 14, padding: '10px 18px', border: '1px solid rgba(255,255,255,0.5)' } }, '⚙️ ตั้งค่าหลักสูตร'),
         React.createElement('button', { className: 'btn-secondary', onClick: () => setShowBulkModal(true), style: { fontSize: 14, padding: '10px 18px' } }, '📋 นำเข้าหลายรายการ'),
         React.createElement('button', { className: 'btn-primary', onClick: openAdd, style: { display: 'flex', alignItems: 'center', gap: 8 } },
           React.createElement(window.Icon, { name: 'add', size: 18, color: 'white' }), 'เพิ่มรายวิชา'
@@ -155,6 +172,9 @@ window.AdminCurriculumView = function() {
           ),
           React.createElement('div', { className: 'progress-bar-bg', style: { height: 4, marginTop: 6 } },
             React.createElement('div', { className: 'progress-bar-fill', style: { width: Math.min(100, (cat.totalCredits / cat.requiredCredits) * 100) + '%', background: catText[cat.id], height: 4 } })
+          ),
+          React.createElement('div', { style: { fontSize: 11, marginTop: 4, color: cat.totalCredits >= cat.requiredCredits ? '#15803d' : '#dc2626', fontWeight: 600 } },
+            cat.totalCredits >= cat.requiredCredits ? '✅ ครบตามหลักสูตร' : '⚠ ขาดอีก ' + (cat.requiredCredits - cat.totalCredits) + ' cr'
           )
         )
       )
@@ -335,7 +355,66 @@ window.AdminCurriculumView = function() {
     React.createElement(window.ConfirmDialog, {
       open: !!confirmDelete, message: 'ยืนยันลบรายวิชานี้ออกจากหลักสูตร?',
       onConfirm: () => handleDelete(confirmDelete), onCancel: () => setConfirmDelete(null)
-    })
+    }),
+
+    React.createElement(window.Modal, {
+      open: showSettingsModal,
+      onClose: function() { setShowSettingsModal(false); },
+      title: '⚙️ ตั้งค่าหลักสูตร',
+      width: '560px'
+    },
+      settingsForm && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+        // ชื่อหลักสูตร
+        React.createElement('div', {},
+          React.createElement('label', { style: { fontSize: 13, color: '#6b7280', marginBottom: 5, display: 'block', fontWeight: 600 } }, 'ชื่อหลักสูตร'),
+          React.createElement('input', {
+            className: 'glass-input',
+            value: settingsForm.name || '',
+            onChange: function(e) { setSettingsForm(function(f) { return Object.assign({}, f, { name: e.target.value }); }); },
+            style: { width: '100%', padding: '10px 12px', fontSize: 14, boxSizing: 'border-box' }
+          })
+        ),
+        // หน่วยกิตแต่ละหมวด
+        React.createElement('div', { style: { background: 'rgba(249,168,212,0.1)', borderRadius: 12, padding: '14px 16px' } },
+          React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: '#be185d', marginBottom: 12 } }, '📋 จำนวนหน่วยกิตขั้นต่ำแต่ละหมวด'),
+          React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+            (settingsForm.categories || []).map(function(cat, idx) {
+              return React.createElement('div', { key: cat.id, style: { display: 'flex', alignItems: 'center', gap: 12 } },
+                React.createElement('div', { style: { flex: 1, fontSize: 14, color: '#374151', fontWeight: 500 } }, cat.name),
+                React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                  React.createElement('input', {
+                    type: 'number', min: 0, max: 200,
+                    value: cat.requiredCredits,
+                    onChange: function(e) {
+                      var val = parseInt(e.target.value) || 0;
+                      setSettingsForm(function(f) {
+                        var cats = f.categories.map(function(c, i) {
+                          return i === idx ? Object.assign({}, c, { requiredCredits: val }) : c;
+                        });
+                        return Object.assign({}, f, { categories: cats });
+                      });
+                    },
+                    style: { width: 70, padding: '6px 8px', fontSize: 14, borderRadius: 8, border: '1px solid rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.7)', textAlign: 'center' }
+                  }),
+                  React.createElement('span', { style: { fontSize: 13, color: '#6b7280' } }, 'หน่วยกิต')
+                )
+              );
+            })
+          )
+        ),
+        // สรุปรวม
+        React.createElement('div', { style: { background: 'rgba(219,39,119,0.08)', borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+          React.createElement('span', { style: { fontSize: 14, fontWeight: 600, color: '#374151' } }, 'รวมทั้งหมด'),
+          React.createElement('span', { style: { fontSize: 16, fontWeight: 800, color: '#be185d' } },
+            (settingsForm.categories || []).reduce(function(s, c) { return s + c.requiredCredits; }, 0) + ' หน่วยกิต'
+          )
+        ),
+        React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
+          React.createElement('button', { className: 'btn-secondary', onClick: function() { setShowSettingsModal(false); } }, 'ยกเลิก'),
+          React.createElement('button', { className: 'btn-primary', onClick: handleSaveSettings }, '💾 บันทึกการตั้งค่า')
+        )
+      )
+    )
   ); // end Fragment
 };
 

@@ -284,6 +284,70 @@ window.AdvisorEarlyWarningView = function() {
             )
           ),
 
+          // Teaching Practice Section
+          (() => {
+            var tpResults = myStudents.map(function(s) {
+              var tp = window.Utils.checkTeachingPractice(s, courses);
+              return Object.assign({ student: s }, tp);
+            });
+            var tpIneligible = tpResults.filter(function(r) { return !r.eligible; });
+            var tpAtRisk = tpResults.filter(function(r) { return r.eligible && r.trend === 'at-risk'; });
+            var tpSafe = tpResults.filter(function(r) { return r.trend === 'safe'; });
+
+            return React.createElement('div', { className: 'glass-card', style: { padding: '20px 22px', marginBottom: 0 } },
+              React.createElement('h2', { style: { fontSize: 17, fontWeight: 800, color: '#1f2937', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 } },
+                '🏫 สถานะการออกฝึกสอน (ฝึกประสบการณ์วิชาชีพครู)'
+              ),
+              // Summary stat row
+              React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 } },
+                React.createElement('div', { style: { padding: '12px 16px', borderRadius: 12, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', textAlign: 'center' } },
+                  React.createElement('div', { style: { fontSize: 28, fontWeight: 800, color: '#dc2626' } }, tpIneligible.length),
+                  React.createElement('div', { style: { fontSize: 12, color: '#6b7280', marginTop: 2 } }, '🚫 ออกฝึกสอนไม่ได้')
+                ),
+                React.createElement('div', { style: { padding: '12px 16px', borderRadius: 12, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', textAlign: 'center' } },
+                  React.createElement('div', { style: { fontSize: 28, fontWeight: 800, color: '#d97706' } }, tpAtRisk.length),
+                  React.createElement('div', { style: { fontSize: 12, color: '#6b7280', marginTop: 2 } }, '⚠️ มีความเสี่ยง')
+                ),
+                React.createElement('div', { style: { padding: '12px 16px', borderRadius: 12, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', textAlign: 'center' } },
+                  React.createElement('div', { style: { fontSize: 28, fontWeight: 800, color: '#15803d' } }, tpSafe.length),
+                  React.createElement('div', { style: { fontSize: 12, color: '#6b7280', marginTop: 2 } }, '✅ ผ่านเกณฑ์')
+                )
+              ),
+              // รายชื่อที่ไม่ผ่าน
+              tpIneligible.length > 0 && React.createElement('div', { style: { marginBottom: 12 } },
+                React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: '#dc2626', marginBottom: 8 } }, '🚫 ไม่สามารถออกฝึกสอนได้ (E/F ≥ 9 หน่วยกิต)'),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+                  tpIneligible.map(function(r) {
+                    return React.createElement('div', { key: r.student.id, style: { display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.07)', borderRadius: 10 } },
+                      React.createElement('div', { style: { flex: 1 } },
+                        React.createElement('span', { style: { fontSize: 14, fontWeight: 600 } }, r.student.name),
+                        React.createElement('span', { style: { fontSize: 12, color: '#6b7280', marginLeft: 8 } }, r.student.studentId)
+                      ),
+                      React.createElement('span', { style: { fontSize: 13, color: '#dc2626', fontWeight: 700 } }, r.efCredits + ' cr E/F'),
+                      React.createElement('span', { style: { fontSize: 11, padding: '3px 10px', background: 'rgba(239,68,68,0.15)', color: '#dc2626', borderRadius: 20, fontWeight: 700 } }, '✗ ไม่ผ่าน')
+                    );
+                  })
+                )
+              ),
+              // รายชื่อเสี่ยง
+              tpAtRisk.length > 0 && React.createElement('div', {},
+                React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: '#d97706', marginBottom: 8 } }, '⚠️ มีความเสี่ยง (E/F 6–8 หน่วยกิต) — แนวโน้มอาจออกฝึกสอนไม่ได้'),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+                  tpAtRisk.map(function(r) {
+                    return React.createElement('div', { key: r.student.id, style: { display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'rgba(245,158,11,0.07)', borderRadius: 10 } },
+                      React.createElement('div', { style: { flex: 1 } },
+                        React.createElement('span', { style: { fontSize: 14, fontWeight: 600 } }, r.student.name),
+                        React.createElement('span', { style: { fontSize: 12, color: '#6b7280', marginLeft: 8 } }, r.student.studentId)
+                      ),
+                      React.createElement('span', { style: { fontSize: 13, color: '#d97706', fontWeight: 700 } }, r.efCredits + ' cr E/F'),
+                      React.createElement('span', { style: { fontSize: 11, padding: '3px 10px', background: 'rgba(245,158,11,0.15)', color: '#d97706', borderRadius: 20, fontWeight: 700 } }, '⚠ เสี่ยง')
+                    );
+                  })
+                )
+              )
+            );
+          })(),
+
           // Cards for each at-risk student
           atRiskData.map(({ student: s, failedCourses, withdrawCourses, gpax }) =>
             React.createElement('div', { key: s.id, className: 'glass-card', style: { padding: 20, borderLeft: '4px solid #ef4444' } },
