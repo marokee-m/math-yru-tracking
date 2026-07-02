@@ -682,6 +682,7 @@ window.StudentLicenseView = function({ student, actions }) {
   var [uploadError, setUploadError] = React.useState('');
   var [fileUrl, setFileUrl] = React.useState(exam.fileUrl || null);
   var [fileName, setFileName] = React.useState(exam.fileName || null);
+  var [saveMsg, setSaveMsg] = React.useState('');
   var fileInputRef = React.useRef(null);
 
   var statusConfig = {
@@ -691,39 +692,53 @@ window.StudentLicenseView = function({ student, actions }) {
   };
 
   var handleStatusChange = function(newStatus) {
-    setStatus(newStatus);
-    if (newStatus !== 'passed') {
-      actions.updateStudent(student.id, { licenseExam: { status: newStatus, fileUrl: null, fileName: null } });
-    } else if (fileUrl) {
-      actions.updateStudent(student.id, { licenseExam: { status: newStatus, fileUrl: fileUrl, fileName: fileName } });
-    } else {
-      actions.updateStudent(student.id, { licenseExam: { status: newStatus, fileUrl: null, fileName: null } });
+    if (newStatus === 'passed' && !fileUrl) {
+      setStatus(newStatus);
+      setSaveMsg('⚠ กรุณาอัปโหลดหลักฐานการสอบผ่านก่อนบันทึก');
+      return;
     }
+    setSaveMsg('');
+    setStatus(newStatus);
+    actions.updateStudent(student.id, {
+      licenseExam: {
+        status: newStatus,
+        fileUrl: newStatus !== 'passed' ? null : fileUrl,
+        fileName: newStatus !== 'passed' ? null : fileName
+      }
+    });
   };
 
   var handleFileUpload = function(e) {
     var file = e.target.files[0];
     if (!file) return;
-    var allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) { setUploadError('รองรับเฉพาะไฟล์ PDF, JPG, PNG เท่านั้น'); return; }
-    if (file.size > 5 * 1024 * 1024) { setUploadError('ขนาดไฟล์ต้องไม่เกิน 5MB'); return; }
+    var allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'image/jpg'];
+    if (!allowedTypes.some(function(t) { return file.type === t || file.name.toLowerCase().endsWith('.pdf'); })) {
+      setUploadError('รองรับเฉพาะไฟล์ PDF, JPG, PNG เท่านั้น');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) { setUploadError('ขนาดไฟล์ต้องไม่เกิน 10MB'); return; }
+    if (!window.GDriveUploader) { setUploadError('ระบบ Google Drive ยังไม่พร้อม'); return; }
+    if (!window.GDRIVE_CLIENT_ID || window.GDRIVE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
+      setUploadError('⚠ กรุณาตั้งค่า Google Drive Client ID ใน firebase-config.js ก่อน');
+      return;
+    }
     setUploadError('');
     setUploading(true);
-    var storage = actions.getStorage ? actions.getStorage() : null;
-    if (!storage) { setUploadError('ระบบ Storage ยังไม่พร้อม กรุณาลองใหม่'); setUploading(false); return; }
-    var ext = file.name.split('.').pop();
-    var ref = storage.ref('license-exams/' + student.id + '/proof.' + ext);
-    ref.put(file).then(function() {
-      return ref.getDownloadURL();
-    }).then(function(url) {
-      setFileUrl(url);
-      setFileName(file.name);
-      setUploading(false);
-      actions.updateStudent(student.id, { licenseExam: { status: status === 'passed' ? 'passed' : status, fileUrl: url, fileName: file.name } });
-    }).catch(function(err) {
-      setUploadError('อัปโหลดไม่สำเร็จ: ' + (err.message || 'ลองใหม่'));
-      setUploading(false);
-    });
+    window.GDriveUploader.uploadFile(
+      file,
+      window.GDRIVE_FOLDERS.LICENSE_EXAM,
+      function(pct) { /* progress */ },
+      function(err, result) {
+        setUploading(false);
+        if (err) { setUploadError('อัปโหลดไม่สำเร็จ: ' + (err.message || 'ลองใหม่')); return; }
+        setFileUrl(result.viewUrl);
+        setFileName(result.fileName);
+        setSaveMsg('');
+        actions.updateStudent(student.id, {
+          licenseExam: { status: status === 'passed' ? 'passed' : status, fileUrl: result.viewUrl, fileName: result.fileName }
+        });
+      }
+    );
   };
 
   var sc = statusConfig[status] || statusConfig['not_taken'];
@@ -773,6 +788,7 @@ window.StudentLicenseView = function({ student, actions }) {
         })
       )
     ),
+    saveMsg && React.createElement('div', { style: { marginBottom: 16, padding: '10px 16px', borderRadius: 10, background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.3)', color: '#c2410c', fontSize: 14, fontWeight: 600 } }, saveMsg),
     status === 'passed' && React.createElement('div', { className: 'glass-card', style: { padding: '20px 24px' } },
       React.createElement('div', { style: { fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 14 } }, '📎 แนบหลักฐานการสอบผ่าน'),
       fileUrl
@@ -794,7 +810,7 @@ window.StudentLicenseView = function({ student, actions }) {
           : React.createElement('div', {},
               React.createElement('div', { style: { fontSize: 28, marginBottom: 8 } }, '📤'),
               React.createElement('div', { style: { fontSize: 14, fontWeight: 600, color: '#374151' } }, fileUrl ? 'เปลี่ยนไฟล์' : 'คลิกเพื่ออัปโหลดไฟล์'),
-              React.createElement('div', { style: { fontSize: 12, color: '#9ca3af', marginTop: 4 } }, 'รองรับ PDF, JPG, PNG ขนาดไม่เกิน 5MB')
+              React.createElement('div', { style: { fontSize: 12, color: '#9ca3af', marginTop: 4 } }, 'รองรับ PDF, JPG, PNG ขนาดไม่เกิน 10MB')
             )
       ),
       React.createElement('input', {

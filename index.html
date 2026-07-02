@@ -390,6 +390,9 @@
 
   <div id="root" style="position:relative;z-index:1;min-height:100vh;"></div>
 
+  <!-- Google Identity Services (OAuth for Google Drive) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <!-- 0. Firebase config (แก้ไขค่าใน firebase-config.js) -->
   <script src="src/firebase-config.js"></script>
 
@@ -407,6 +410,10 @@
 
   <!-- 5. Advisor Views -->
   <script src="src/Advisor.js"></script>
+
+  <!-- 5b. Borrow System -->
+  <script src="src/gdrive.js"></script>
+  <script src="src/Borrow.js"></script>
 
   <!-- 6. Main App Router (mount) -->
   <script src="src/app.js"></script>

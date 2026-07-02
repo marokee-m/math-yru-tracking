@@ -233,6 +233,8 @@ window.AppProvider = function({ children }) {
       students: [],
       advisors: [],
       courses: [],
+      equipment: [],
+      borrowRequests: [],
       curriculumMeta: window.AppData.CURRICULUM_META,
     };
   });
@@ -284,6 +286,20 @@ window.AppProvider = function({ children }) {
         if (doc.exists) {
           setState(function(s) { return Object.assign({}, s, { curriculumMeta: doc.data() }); });
         }
+      });
+
+      // Equipment listener
+      db.collection('equipment').onSnapshot(function(snap) {
+        var list = [];
+        snap.forEach(function(doc) { list.push(Object.assign({ id: doc.id }, doc.data())); });
+        setState(function(s) { return Object.assign({}, s, { equipment: list }); });
+      });
+
+      // BorrowRequests listener
+      db.collection('borrowRequests').orderBy('createdAt', 'desc').onSnapshot(function(snap) {
+        var list = [];
+        snap.forEach(function(doc) { list.push(Object.assign({ id: doc.id }, doc.data())); });
+        setState(function(s) { return Object.assign({}, s, { borrowRequests: list }); });
       });
 
       // store cleanup
@@ -388,6 +404,27 @@ window.AppProvider = function({ children }) {
     updateCurriculumMeta: function(meta) {
       if (dbRef.current) dbRef.current.collection('settings').doc('curriculum').set(meta);
       setState(function(s) { return Object.assign({}, s, { curriculumMeta: meta }); });
+    },
+
+    // Equipment CRUD
+    addEquipment: function(data) {
+      if (dbRef.current) return dbRef.current.collection('equipment').add(data);
+    },
+    updateEquipment: function(id, data) {
+      if (dbRef.current) return dbRef.current.collection('equipment').doc(id).update(data);
+    },
+    deleteEquipment: function(id) {
+      if (dbRef.current) return dbRef.current.collection('equipment').doc(id).delete();
+    },
+    // Borrow Requests
+    addBorrowRequest: function(data) {
+      if (dbRef.current) {
+        var req = Object.assign({ createdAt: new Date().toISOString(), status: 'pending' }, data);
+        return dbRef.current.collection('borrowRequests').add(req);
+      }
+    },
+    updateBorrowRequest: function(id, data) {
+      if (dbRef.current) return dbRef.current.collection('borrowRequests').doc(id).update(data);
     },
 
     // Advisors

@@ -396,6 +396,17 @@ window.AppData = {
   // ============================================================
   // INITIAL_ADVISORS - ข้อมูลอาจารย์ที่ปรึกษา
   // ============================================================
+  // ============================================================
+  // INITIAL_EQUIPMENT - อุปกรณ์คณิตศาสตร์เริ่มต้น
+  // ============================================================
+  INITIAL_EQUIPMENT: [
+    { id: 'eq001', code: 'MATH-001', name: 'ชุดเรขาคณิตสามมิติ',       totalQuantity: 5,  availableQuantity: 5,  imageUrl: null, description: 'ชุดรูปทรงสามมิติสำหรับการสอนเรขาคณิต' },
+    { id: 'eq002', code: 'MATH-002', name: 'เครื่องคิดเลขวิทยาศาสตร์', totalQuantity: 20, availableQuantity: 20, imageUrl: null, description: 'Casio FX-991EX' },
+    { id: 'eq003', code: 'MATH-003', name: 'อุปกรณ์สร้างสื่อการสอน',    totalQuantity: 3,  availableQuantity: 3,  imageUrl: null, description: 'ชุดอุปกรณ์สำหรับทำสื่อการสอนคณิตศาสตร์' },
+    { id: 'eq004', code: 'MATH-004', name: 'บอร์ดเกมคณิตศาสตร์',        totalQuantity: 8,  availableQuantity: 8,  imageUrl: null, description: 'เกมกระดานสำหรับฝึกทักษะคณิตศาสตร์' },
+    { id: 'eq005', code: 'MATH-005', name: 'กระดานแสดงแผนภูมิ',         totalQuantity: 4,  availableQuantity: 4,  imageUrl: null, description: 'กระดาน Whiteboard พกพา' }
+  ],
+
   INITIAL_ADVISORS: [
     {
       id: "a001",
@@ -462,4 +473,15 @@ window.seedFirestoreIfEmpty = async function(db) {
 
   await batch.commit();
   console.log('✅ Firestore seeded successfully');
+
+  // Seed equipment
+  var eqSnap = await db.collection('equipment').limit(1).get();
+  if (eqSnap.empty) {
+    var eqBatch = db.batch();
+    window.AppData.INITIAL_EQUIPMENT.forEach(function(eq) {
+      eqBatch.set(db.collection('equipment').doc(eq.id), eq);
+    });
+    await eqBatch.commit();
+    console.log('✅ Seeded equipment');
+  }
 };

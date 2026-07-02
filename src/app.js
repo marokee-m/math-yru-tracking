@@ -11,19 +11,24 @@ function App() {
     admin: [
       { key: 'curriculum', label: 'จัดการหลักสูตร', icon: '📚' },
       { key: 'users',      label: 'จัดการผู้ใช้',   icon: '👥' },
+      { key: 'equipment',  label: 'ยืมคืนอุปกรณ์',  icon: '🗄️' },
     ],
     student: [
       { key: 'quick-input', label: 'บันทึกรายวิชา',    icon: '📋' },
       { key: 'checklist',   label: 'ตรวจสอบหลักสูตร', icon: '✅' },
       { key: 'simulator',   label: 'จำลองเกรด/GPAX',  icon: '🧮' },
       { key: 'license',     label: 'ใบประกอบวิชาชีพ',  icon: '📜' },
+      { key: 'eq-catalog',  label: 'คลังอุปกรณ์',      icon: '📦' },
+      { key: 'my-borrows',  label: 'การยืมของฉัน',     icon: '📋' },
     ],
     advisor: [
-      { key: 'dashboard', label: 'Dashboard',          icon: '📊' },
-      { key: 'tracking',  label: 'ติดตามรายบุคคล',    icon: '🔍' },
-      { key: 'warning',   label: 'Early Warning',       icon: '🚨' },
-      { key: 'export',    label: 'Export รายงาน',      icon: '📤' },
-      { key: 'license',   label: 'ใบประกอบวิชาชีพ',   icon: '📜' },
+      { key: 'dashboard',      label: 'Dashboard',        icon: '📊' },
+      { key: 'tracking',       label: 'ติดตามรายบุคคล',  icon: '🔍' },
+      { key: 'warning',        label: 'Early Warning',     icon: '🚨' },
+      { key: 'export',         label: 'Export รายงาน',    icon: '📤' },
+      { key: 'license',        label: 'ใบประกอบวิชาชีพ', icon: '📜' },
+      { key: 'borrow-approve', label: 'อนุมัติการยืม',   icon: '✅' },
+      { key: 'borrow-return',  label: 'ติดตามการคืน',    icon: '📦' },
     ],
   };
 
@@ -56,6 +61,7 @@ function App() {
     if (currentRole === 'admin') {
       if (currentPage === 'curriculum') return React.createElement(window.AdminCurriculumView);
       if (currentPage === 'users')      return React.createElement(window.AdminUserView);
+      if (currentPage === 'equipment')  return React.createElement(window.AdminEquipmentView);
     }
 
     if (currentRole === 'student') {
@@ -64,14 +70,18 @@ function App() {
       if (currentPage === 'checklist')   return React.createElement(window.StudentChecklistView);
       if (currentPage === 'simulator')   return React.createElement(window.StudentSimulatorView);
       if (currentPage === 'license')     return React.createElement(window.StudentLicenseView, { student: s, actions: actions });
+      if (currentPage === 'eq-catalog')  return React.createElement(window.StudentEquipmentCatalog);
+      if (currentPage === 'my-borrows')  return React.createElement(window.StudentMyBorrowsView);
     }
 
     if (currentRole === 'advisor') {
-      if (currentPage === 'dashboard') return React.createElement(window.AdvisorDashboardView);
-      if (currentPage === 'tracking')  return React.createElement(window.AdvisorTrackingView);
-      if (currentPage === 'warning')   return React.createElement(window.AdvisorEarlyWarningView);
-      if (currentPage === 'export')    return React.createElement(window.AdvisorExportView);
-      if (currentPage === 'license')   return React.createElement(window.AdvisorLicenseView, { students: state.students, courses: state.courses, advisorId: currentUserId });
+      if (currentPage === 'dashboard')      return React.createElement(window.AdvisorDashboardView);
+      if (currentPage === 'tracking')       return React.createElement(window.AdvisorTrackingView);
+      if (currentPage === 'warning')        return React.createElement(window.AdvisorEarlyWarningView);
+      if (currentPage === 'export')         return React.createElement(window.AdvisorExportView);
+      if (currentPage === 'license')        return React.createElement(window.AdvisorLicenseView, { students: state.students, courses: state.courses, advisorId: currentUserId });
+      if (currentPage === 'borrow-approve') return React.createElement(window.AdvisorBorrowApprovalView);
+      if (currentPage === 'borrow-return')  return React.createElement(window.AdvisorReturnTrackingView);
     }
 
     return null;
