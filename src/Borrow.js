@@ -20,9 +20,18 @@ window.AdminEquipmentView = function() {
   var [msg, setMsg] = React.useState('');
   var fileInputRef = React.useRef(null);
 
+  var genNextCode = function() {
+    var nums = equipment.map(function(e) {
+      var m = (e.code || '').match(/(\d+)$/);
+      return m ? parseInt(m[1]) : 0;
+    });
+    var next = nums.length > 0 ? Math.max.apply(null, nums) + 1 : 1;
+    return 'MATH-' + String(next).padStart(3, '0');
+  };
+
   var openAdd = function() {
     setEditItem(null);
-    setForm({ code: '', name: '', totalQuantity: 1, availableQuantity: 1, imageUrl: '', description: '', borrowType: 'borrow' });
+    setForm({ code: genNextCode(), name: '', totalQuantity: 1, availableQuantity: 1, imageUrl: '', description: '', borrowType: 'borrow' });
     setImagePreview(null); setImageFile(null); setUploadProgress(0); setMsg('');
     setShowModal(true);
   };
