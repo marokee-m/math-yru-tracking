@@ -12,7 +12,3 @@ window.FIREBASE_CONFIG = {
 // เปลี่ยนเป็น false หลังจาก seed แล้ว
 window.SEED_ON_EMPTY = true;
 
-// Google Drive OAuth Client ID
-// วิธีสร้าง: https://console.cloud.google.com → APIs & Services → Credentials → Create OAuth 2.0 Client ID
-// Authorized JS origins: https://marokee-m.github.io
-window.GDRIVE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';

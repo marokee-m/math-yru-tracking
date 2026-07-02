@@ -711,31 +711,34 @@ window.StudentLicenseView = function({ student, actions }) {
   var handleFileUpload = function(e) {
     var file = e.target.files[0];
     if (!file) return;
-    var allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'image/jpg'];
-    if (!allowedTypes.some(function(t) { return file.type === t || file.name.toLowerCase().endsWith('.pdf'); })) {
-      setUploadError('รองรับเฉพาะไฟล์ PDF, JPG, PNG เท่านั้น');
-      return;
-    }
+    // Validate type
+    var allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg', 'application/pdf'];
+    var isAllowed = allowed.indexOf(file.type) !== -1 || file.name.toLowerCase().endsWith('.pdf');
+    if (!isAllowed) { setUploadError('รองรับเฉพาะไฟล์ PDF, JPG, PNG เท่านั้น'); return; }
     if (file.size > 10 * 1024 * 1024) { setUploadError('ขนาดไฟล์ต้องไม่เกิน 10MB'); return; }
-    if (!window.GDriveUploader) { setUploadError('ระบบ Google Drive ยังไม่พร้อม'); return; }
-    if (!window.GDRIVE_CLIENT_ID || window.GDRIVE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
-      setUploadError('⚠ กรุณาตั้งค่า Google Drive Client ID ใน firebase-config.js ก่อน');
-      return;
-    }
+    var storage = actions.getStorage ? actions.getStorage() : null;
+    if (!storage) { setUploadError('Firebase Storage ยังไม่พร้อม กรุณาลองใหม่'); return; }
     setUploadError('');
     setUploading(true);
-    window.GDriveUploader.uploadFile(
-      file,
-      window.GDRIVE_FOLDERS.LICENSE_EXAM,
-      function(pct) { /* progress */ },
-      function(err, result) {
+    var ext = file.name.split('.').pop() || 'pdf';
+    var path = 'license-exams/' + student.id + '/' + Date.now() + '.' + ext;
+    var ref = storage.ref(path);
+    var uploadTask = ref.put(file);
+    uploadTask.on('state_changed',
+      function() {},
+      function(err) {
         setUploading(false);
-        if (err) { setUploadError('อัปโหลดไม่สำเร็จ: ' + (err.message || 'ลองใหม่')); return; }
-        setFileUrl(result.viewUrl);
-        setFileName(result.fileName);
-        setSaveMsg('');
-        actions.updateStudent(student.id, {
-          licenseExam: { status: status === 'passed' ? 'passed' : status, fileUrl: result.viewUrl, fileName: result.fileName }
+        setUploadError('อัปโหลดไม่สำเร็จ: ' + (err.message || 'ลองใหม่'));
+      },
+      function() {
+        ref.getDownloadURL().then(function(url) {
+          setUploading(false);
+          setFileUrl(url);
+          setFileName(file.name);
+          setSaveMsg && setSaveMsg('');
+          actions.updateStudent(student.id, {
+            licenseExam: { status: 'passed', fileUrl: url, fileName: file.name }
+          });
         });
       }
     );
