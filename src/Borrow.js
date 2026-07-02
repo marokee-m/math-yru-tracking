@@ -22,13 +22,13 @@ window.AdminEquipmentView = function() {
 
   var openAdd = function() {
     setEditItem(null);
-    setForm({ code: '', name: '', totalQuantity: 1, availableQuantity: 1, imageUrl: '', description: '' });
+    setForm({ code: '', name: '', totalQuantity: 1, availableQuantity: 1, imageUrl: '', description: '', borrowType: 'borrow' });
     setImagePreview(null); setImageFile(null); setUploadProgress(0); setMsg('');
     setShowModal(true);
   };
   var openEdit = function(item) {
     setEditItem(item);
-    setForm({ code: item.code || '', name: item.name || '', totalQuantity: item.totalQuantity || 1, availableQuantity: item.availableQuantity !== undefined ? item.availableQuantity : item.totalQuantity, imageUrl: item.imageUrl || '', description: item.description || '' });
+    setForm({ code: item.code || '', name: item.name || '', totalQuantity: item.totalQuantity || 1, availableQuantity: item.availableQuantity !== undefined ? item.availableQuantity : item.totalQuantity, imageUrl: item.imageUrl || '', description: item.description || '', borrowType: item.borrowType || 'borrow' });
     setImagePreview(item.imageUrl || null); setImageFile(null); setUploadProgress(0); setMsg('');
     setShowModal(true);
   };
@@ -119,6 +119,7 @@ window.AdminEquipmentView = function() {
               React.createElement('th', { style: { width: 60 } }, 'ภาพ'),
               React.createElement('th', {}, 'รหัส'),
               React.createElement('th', {}, 'ชื่ออุปกรณ์'),
+              React.createElement('th', {}, 'ประเภท'),
               React.createElement('th', { style: { textAlign: 'center' } }, 'ทั้งหมด'),
               React.createElement('th', { style: { textAlign: 'center' } }, 'คงเหลือ'),
               React.createElement('th', { style: { width: 120 } }, '')
@@ -126,7 +127,7 @@ window.AdminEquipmentView = function() {
           ),
           React.createElement('tbody', {},
             equipment.length === 0
-              ? React.createElement('tr', {}, React.createElement('td', { colSpan: 6, style: { textAlign: 'center', color: '#9ca3af', padding: '32px' } }, 'ยังไม่มีอุปกรณ์'))
+              ? React.createElement('tr', {}, React.createElement('td', { colSpan: 7, style: { textAlign: 'center', color: '#9ca3af', padding: '32px' } }, 'ยังไม่มีอุปกรณ์'))
               : equipment.map(function(item) {
                 var avail = item.availableQuantity || 0;
                 var total = item.totalQuantity || 1;
@@ -139,6 +140,11 @@ window.AdminEquipmentView = function() {
                   ),
                   React.createElement('td', {}, React.createElement('code', { style: { fontSize: 12, color: '#6b7280' } }, item.code || '—')),
                   React.createElement('td', { style: { fontWeight: 600 } }, item.name),
+                  React.createElement('td', {},
+                    item.borrowType === 'requisition'
+                      ? React.createElement('span', { style: { fontSize: 12, padding: '3px 8px', borderRadius: 12, background: 'rgba(139,92,246,0.12)', color: '#7c3aed', fontWeight: 600 } }, '📤 เบิกจ่าย')
+                      : React.createElement('span', { style: { fontSize: 12, padding: '3px 8px', borderRadius: 12, background: 'rgba(59,130,246,0.12)', color: '#1d4ed8', fontWeight: 600 } }, '🔄 ยืมคืน')
+                  ),
                   React.createElement('td', { style: { textAlign: 'center', fontWeight: 700 } }, total),
                   React.createElement('td', { style: { textAlign: 'center' } },
                     React.createElement('span', { style: { fontWeight: 700, color: avail === 0 ? '#dc2626' : avail < total * 0.3 ? '#d97706' : '#15803d' } }, avail),
@@ -205,6 +211,26 @@ window.AdminEquipmentView = function() {
           React.createElement('div', {},
             React.createElement('label', { style: labelStyle }, 'ชื่ออุปกรณ์ *'),
             React.createElement('input', { className: 'glass-input', style: inputStyle, placeholder: 'ชื่ออุปกรณ์', value: form.name, onChange: function(e) { setF('name', e.target.value); } })
+          )
+        ),
+        // ประเภทอุปกรณ์
+        React.createElement('div', {},
+          React.createElement('label', { style: labelStyle }, 'ประเภทการใช้งาน'),
+          React.createElement('div', { style: { display: 'flex', gap: 10 } },
+            ['borrow', 'requisition'].map(function(type) {
+              var labels = { borrow: { icon: '🔄', text: 'ยืมคืน', desc: 'ต้องส่งคืน' }, requisition: { icon: '📤', text: 'เบิกจ่าย', desc: 'ไม่ต้องส่งคืน' } };
+              var L = labels[type];
+              var selected = form.borrowType === type;
+              return React.createElement('div', {
+                key: type,
+                onClick: function() { setF('borrowType', type); },
+                style: { flex: 1, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', border: '2px solid ' + (selected ? '#ec4899' : 'rgba(0,0,0,0.1)'), background: selected ? 'rgba(236,72,153,0.08)' : 'rgba(255,255,255,0.4)', transition: 'all 0.2s' }
+              },
+                React.createElement('div', { style: { fontSize: 20, marginBottom: 4 } }, L.icon),
+                React.createElement('div', { style: { fontSize: 14, fontWeight: selected ? 700 : 500, color: selected ? '#be185d' : '#374151' } }, L.text),
+                React.createElement('div', { style: { fontSize: 11, color: '#9ca3af' } }, L.desc)
+              );
+            })
           )
         ),
         // Quantities
@@ -287,6 +313,7 @@ window.StudentEquipmentCatalog = function() {
       returnDate: borrowForm.returnDate,
       reason: borrowForm.reason.trim(),
       status: 'pending',
+      borrowType: borrowItem.borrowType || 'borrow',
       createdAt: new Date().toISOString()
     };
     actions.addBorrowRequest(req).then(function() {
@@ -340,7 +367,7 @@ window.StudentEquipmentCatalog = function() {
                     React.createElement('div', { style: { width: (avail / (item.totalQuantity || 1) * 100) + '%', height: '100%', background: avail === 0 ? '#ef4444' : avail <= 2 ? '#f59e0b' : '#22c55e', borderRadius: 99 } })
                   ),
                   React.createElement('div', { style: { marginTop: 10, padding: '6px 0', textAlign: 'center', borderRadius: 8, fontSize: 13, fontWeight: 600, background: available ? 'rgba(219,39,119,0.1)' : 'rgba(239,68,68,0.1)', color: available ? '#be185d' : '#dc2626' } },
-                    available ? '👆 คลิกเพื่อยืม' : '❌ ไม่มีคงเหลือ'
+                    available ? (item.borrowType === 'requisition' ? '👆 คลิกเพื่อขอเบิก' : '👆 คลิกเพื่อยืม') : '❌ ไม่มีคงเหลือ'
                   )
                 )
               );
@@ -351,7 +378,7 @@ window.StudentEquipmentCatalog = function() {
     React.createElement(window.Modal, {
       open: !!borrowItem,
       onClose: function() { setBorrowItem(null); },
-      title: '📋 ส่งคำขอยืม',
+      title: borrowItem ? (borrowItem.borrowType === 'requisition' ? '📤 ส่งคำขอเบิก' : '📋 ส่งคำขอยืม') : '📋 ส่งคำขอยืม',
       width: '480px'
     },
       borrowItem && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
@@ -387,7 +414,7 @@ window.StudentEquipmentCatalog = function() {
         msg && React.createElement('div', { style: { fontSize: 13, color: '#dc2626' } }, msg),
         React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
           React.createElement('button', { className: 'btn-secondary', onClick: function() { setBorrowItem(null); } }, 'ยกเลิก'),
-          React.createElement('button', { className: 'btn-primary', disabled: submitting, onClick: handleSubmit }, submitting ? '⏳ กำลังส่ง...' : '📤 ส่งคำขอยืม')
+          React.createElement('button', { className: 'btn-primary', disabled: submitting, onClick: handleSubmit }, submitting ? '⏳ กำลังส่ง...' : borrowItem && borrowItem.borrowType === 'requisition' ? '📤 ส่งคำขอเบิก' : '📤 ส่งคำขอยืม')
         )
       )
     )
@@ -512,7 +539,8 @@ window.AdvisorReturnTrackingView = function() {
   var state = ctx.state; var actions = ctx.actions;
   var allRequests = state.borrowRequests || [];
   var equipment = state.equipment || [];
-  var activeLoans = allRequests.filter(function(r) { return r.status === 'approved'; });
+  var activeLoans = allRequests.filter(function(r) { return r.status === 'approved' && r.borrowType !== 'requisition'; });
+  var approvedRequisitions = allRequests.filter(function(r) { return r.status === 'approved' && r.borrowType === 'requisition'; });
   var today = new Date().toISOString().split('T')[0];
 
   var [processing, setProcessing] = React.useState({});
@@ -574,7 +602,21 @@ window.AdvisorReturnTrackingView = function() {
         onTimeLoans.map(function(r) { return renderLoan(r, false); })
       )
     ),
-    activeLoans.length === 0 && React.createElement('div', { className: 'glass-card', style: { padding: '48px', textAlign: 'center', color: '#9ca3af' } }, 'ไม่มีอุปกรณ์ที่กำลังถูกยืมอยู่')
+    activeLoans.length === 0 && approvedRequisitions.length === 0 && React.createElement('div', { className: 'glass-card', style: { padding: '48px', textAlign: 'center', color: '#9ca3af' } }, 'ไม่มีอุปกรณ์ที่กำลังถูกยืมอยู่'),
+    approvedRequisitions.length > 0 && React.createElement('div', { style: { marginTop: 20 } },
+      React.createElement('div', { style: { fontSize: 14, fontWeight: 700, color: '#7c3aed', marginBottom: 10 } }, '📤 รายการเบิกจ่ายที่อนุมัติแล้ว (ไม่ต้องส่งคืน)'),
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+        approvedRequisitions.map(function(req) {
+          return React.createElement('div', { key: req.id, className: 'glass-card', style: { padding: '12px 16px', borderLeft: '4px solid #8b5cf6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+            React.createElement('div', {},
+              React.createElement('div', { style: { fontWeight: 600 } }, req.studentName),
+              React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, '📦 ' + req.equipmentName + ' × ' + req.quantity + ' • วันที่เบิก ' + req.borrowDate)
+            ),
+            React.createElement('span', { style: { fontSize: 12, padding: '4px 10px', background: 'rgba(139,92,246,0.12)', color: '#7c3aed', borderRadius: 20, fontWeight: 600 } }, '✅ เบิกแล้ว')
+          );
+        })
+      )
+    )
   );
 };
 
