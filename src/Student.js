@@ -18,6 +18,9 @@ window.StudentQuickInputView = function() {
   const [editGradeValue, setEditGradeValue] = React.useState('กำลังเรียน');
   var [editEnrollment, setEditEnrollment] = React.useState(null); // { idx, enr }
   var [editForm, setEditForm] = React.useState(null);
+  var [showSingleAdd, setShowSingleAdd] = React.useState(false);
+  var [singleForm, setSingleForm] = React.useState({ courseCode: '', year: 1, semester: 1, grade: 'กำลังเรียน' });
+  var [singleMsg, setSingleMsg] = React.useState('');
 
   const grades = ['กำลังเรียน','A','B+','B','C+','C','D+','D','F','E','W'];
 
@@ -97,7 +100,14 @@ window.StudentQuickInputView = function() {
 
     // Quick input section
     React.createElement('div', { className: 'glass-card', style: { padding: 24, marginBottom: 24 } },
-      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: '#1f2937', marginBottom: 4 } }, '⚡ Quick Import จากระบบทะเบียน'),
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 8 } },
+        React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: '#1f2937' } }, '⚡ Quick Import จากระบบทะเบียน'),
+        React.createElement('button', {
+          className: 'btn-secondary',
+          style: { fontSize: 13, padding: '8px 14px' },
+          onClick: function() { setSingleForm({ courseCode: '', year: student.year, semester: student.currentSemester, grade: 'กำลังเรียน' }); setSingleMsg(''); setShowSingleAdd(true); }
+        }, '➕ เพิ่มรายวิชาเดี่ยว')
+      ),
       React.createElement('p', { style: { fontSize: 13, color: '#6b7280', marginBottom: 16 } },
         'คัดลอกรายวิชาจากระบบทะเบียนแล้ววางที่นี่เลย (รองรับรูปแบบ: รหัสวิชา  ชื่อวิชา  Credit  หน่วยกิต  Sec.)'
       ),
@@ -300,6 +310,79 @@ window.StudentQuickInputView = function() {
               });
               actions.updateStudent(student.id, { enrollments: newEnrollments });
               setEditEnrollment(null); setEditForm(null);
+            }
+          }, '💾 บันทึก')
+        )
+      )
+    ),
+    // Single course add modal
+    React.createElement(window.Modal, {
+      open: showSingleAdd,
+      onClose: function() { setShowSingleAdd(false); setSingleMsg(''); },
+      title: '➕ เพิ่มรายวิชาเดี่ยว',
+      width: '420px'
+    },
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+        React.createElement('div', {},
+          React.createElement('label', { style: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' } }, 'รหัสวิชา *'),
+          React.createElement('input', {
+            className: 'glass-input',
+            style: { width: '100%', padding: '10px 12px', fontSize: 14, boxSizing: 'border-box' },
+            value: singleForm.courseCode,
+            placeholder: 'เช่น 4204101',
+            onChange: function(e) { setSingleForm(function(f) { return Object.assign({}, f, { courseCode: e.target.value }); }); setSingleMsg('');
+            }
+          })
+        ),
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } },
+          React.createElement('div', {},
+            React.createElement('label', { style: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' } }, 'ปีการศึกษา'),
+            React.createElement('select', {
+              className: 'glass-input',
+              style: { width: '100%', padding: '10px 12px', fontSize: 14 },
+              value: singleForm.year,
+              onChange: function(e) { setSingleForm(function(f) { return Object.assign({}, f, { year: parseInt(e.target.value) }); }); }
+            },
+              [1,2,3,4].map(function(y) { return React.createElement('option', { key: y, value: y }, 'ปีที่ ' + y); })
+            )
+          ),
+          React.createElement('div', {},
+            React.createElement('label', { style: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' } }, 'ภาคเรียน'),
+            React.createElement('select', {
+              className: 'glass-input',
+              style: { width: '100%', padding: '10px 12px', fontSize: 14 },
+              value: singleForm.semester,
+              onChange: function(e) { setSingleForm(function(f) { return Object.assign({}, f, { semester: parseInt(e.target.value) }); }); }
+            },
+              [1,2,3].map(function(s) { return React.createElement('option', { key: s, value: s }, 'เทอม ' + s); })
+            )
+          )
+        ),
+        React.createElement('div', {},
+          React.createElement('label', { style: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' } }, 'เกรด'),
+          React.createElement('select', {
+            className: 'glass-input',
+            style: { width: '100%', padding: '10px 12px', fontSize: 14 },
+            value: singleForm.grade,
+            onChange: function(e) { setSingleForm(function(f) { return Object.assign({}, f, { grade: e.target.value }); }); }
+          },
+            ['กำลังเรียน','A','B+','B','C+','C','D+','D','F','E','W'].map(function(g) {
+              return React.createElement('option', { key: g, value: g }, g);
+            })
+          )
+        ),
+        singleMsg && React.createElement('div', { style: { fontSize: 13, color: '#dc2626' } }, singleMsg),
+        React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
+          React.createElement('button', { className: 'btn-secondary', onClick: function() { setShowSingleAdd(false); setSingleMsg(''); } }, 'ยกเลิก'),
+          React.createElement('button', {
+            className: 'btn-primary',
+            onClick: function() {
+              var code = (singleForm.courseCode || '').trim();
+              if (!code) { setSingleMsg('⚠ กรุณากรอกรหัสวิชา'); return; }
+              var exists = student.enrollments.find(function(e) { return e.courseCode === code && e.year === singleForm.year && e.semester === singleForm.semester; });
+              if (exists) { setSingleMsg('⚠ วิชานี้ลงทะเบียนในภาคเรียนนี้แล้ว'); return; }
+              actions.addEnrollment(student.id, { courseCode: code, year: singleForm.year, semester: singleForm.semester, grade: singleForm.grade });
+              setShowSingleAdd(false); setSingleMsg('');
             }
           }, '💾 บันทึก')
         )

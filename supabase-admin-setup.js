@@ -73,6 +73,14 @@ async function main() {
   `);
   console.log('   ✅ ตารางพร้อม');
 
+  // 1b. เพิ่มคอลัมน์ curriculumId (ถ้ายังไม่มี)
+  console.log('📋 เพิ่มคอลัมน์ curriculumId...');
+  await runSQL(`
+    alter table courses add column if not exists "curriculumId" text default '__default__';
+    alter table students add column if not exists "curriculumId" text default '';
+  `);
+  console.log('   ✅ คอลัมน์พร้อม');
+
   // 2. Disable RLS ทุกตาราง
   console.log('🔓 ปิด Row Level Security...');
   await runSQL(`

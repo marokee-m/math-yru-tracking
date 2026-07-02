@@ -236,6 +236,7 @@ window.AppProvider = function({ children }) {
       equipment: [],
       borrowRequests: [],
       curriculumMeta: window.AppData.CURRICULUM_META,
+      curricula: [],
     };
   });
 
@@ -263,8 +264,16 @@ window.AppProvider = function({ children }) {
 
   var reloadSettings = React.useCallback(async function() {
     if (!sbRef.current) return;
-    var res = await sbRef.current.from('settings').select('*').eq('id', 'curriculum').single();
-    if (res.data) setState(function(s) { return Object.assign({}, s, { curriculumMeta: res.data.data || s.curriculumMeta }); });
+    var [currRes, curriculaRes] = await Promise.all([
+      sbRef.current.from('settings').select('*').eq('id', 'curriculum').single(),
+      sbRef.current.from('settings').select('*').eq('id', 'curricula_list').single(),
+    ]);
+    setState(function(s) {
+      var next = Object.assign({}, s);
+      if (currRes.data) next.curriculumMeta = currRes.data.data || s.curriculumMeta;
+      if (curriculaRes.data && curriculaRes.data.data) next.curricula = curriculaRes.data.data;
+      return next;
+    });
   }, []);
 
   var reloadEquipment = React.useCallback(async function() {
@@ -383,12 +392,13 @@ window.AppProvider = function({ children }) {
       if (sbRef.current) sbRef.current.from('students').insert(arr).then(reloadStudents);
     },
     updateStudent: function(studentId, data) {
-      if (sbRef.current) sbRef.current.from('students').update(data).eq('id', studentId);
       setState(function(s) {
         return Object.assign({}, s, { students: s.students.map(function(st) {
           return st.id === studentId ? Object.assign({}, st, data) : st;
         })});
       });
+      if (sbRef.current) return sbRef.current.from('students').update(data).eq('id', studentId);
+      return Promise.resolve();
     },
     deleteStudent: function(id) {
       if (sbRef.current) sbRef.current.from('students').delete().eq('id', id).then(reloadStudents);
@@ -399,6 +409,29 @@ window.AppProvider = function({ children }) {
     updateCurriculumMeta: function(meta) {
       if (sbRef.current) sbRef.current.from('settings').upsert({ id: 'curriculum', data: meta });
       setState(function(s) { return Object.assign({}, s, { curriculumMeta: meta }); });
+    },
+
+    // Curricula management
+    addCurriculum: function(curriculum) {
+      setState(function(s) {
+        var newList = (s.curricula || []).concat([curriculum]);
+        if (sbRef.current) sbRef.current.from('settings').upsert({ id: 'curricula_list', data: newList });
+        return Object.assign({}, s, { curricula: newList });
+      });
+    },
+    updateCurriculum: function(id, updates) {
+      setState(function(s) {
+        var newList = (s.curricula || []).map(function(c) { return c.id === id ? Object.assign({}, c, updates) : c; });
+        if (sbRef.current) sbRef.current.from('settings').upsert({ id: 'curricula_list', data: newList });
+        return Object.assign({}, s, { curricula: newList });
+      });
+    },
+    deleteCurriculum: function(id) {
+      setState(function(s) {
+        var newList = (s.curricula || []).filter(function(c) { return c.id !== id; });
+        if (sbRef.current) sbRef.current.from('settings').upsert({ id: 'curricula_list', data: newList });
+        return Object.assign({}, s, { curricula: newList });
+      });
     },
 
     // Equipment
@@ -440,7 +473,11 @@ window.AppProvider = function({ children }) {
       if (sbRef.current) sbRef.current.from('advisors').insert(arr).then(reloadAdvisors);
     },
     updateAdvisor: function(id, updates) {
-      if (sbRef.current) sbRef.current.from('advisors').update(updates).eq('id', id).then(reloadAdvisors);
+      setState(function(s) {
+        return Object.assign({}, s, { advisors: s.advisors.map(function(a) { return a.id === id ? Object.assign({}, a, updates) : a; }) });
+      });
+      if (sbRef.current) return sbRef.current.from('advisors').update(updates).eq('id', id).then(reloadAdvisors);
+      return Promise.resolve();
     },
     deleteAdvisor: function(id) {
       if (sbRef.current) sbRef.current.from('advisors').delete().eq('id', id).then(reloadAdvisors);
@@ -802,8 +839,89 @@ window.LoginScreen = function() {
   );
 };
 
+// ---- Profile Edit Modal ----
+window.ProfileEditModal = function({ open, onClose, role, userId, students, advisors, actions }) {
+  var user = role === 'student'
+    ? (students || []).find(function(s) { return s.id === userId; })
+    : (advisors || []).find(function(a) { return a.id === userId; });
+
+  var [name, setName] = React.useState('');
+  var [oldPass, setOldPass] = React.useState('');
+  var [newPass, setNewPass] = React.useState('');
+  var [confirmPass, setConfirmPass] = React.useState('');
+  var [msg, setMsg] = React.useState('');
+  var [saving, setSaving] = React.useState(false);
+
+  React.useEffect(function() {
+    if (open && user) {
+      setName(user.name || '');
+      setOldPass(''); setNewPass(''); setConfirmPass(''); setMsg('');
+    }
+  }, [open, userId]);
+
+  var handleSave = function() {
+    if (!name.trim()) { setMsg('⚠ กรุณากรอกชื่อ'); return; }
+    var updates = { name: name.trim() };
+    if (oldPass || newPass || confirmPass) {
+      if (!oldPass) { setMsg('⚠ กรุณากรอกรหัสผ่านเดิม'); return; }
+      if (user.password !== oldPass) { setMsg('⚠ รหัสผ่านเดิมไม่ถูกต้อง'); return; }
+      if (!newPass) { setMsg('⚠ กรุณากรอกรหัสผ่านใหม่'); return; }
+      if (newPass.length < 4) { setMsg('⚠ รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร'); return; }
+      if (newPass !== confirmPass) { setMsg('⚠ รหัสผ่านใหม่ไม่ตรงกัน'); return; }
+      updates.password = newPass;
+    }
+    setSaving(true);
+    var promise = role === 'student'
+      ? actions.updateStudent(userId, updates)
+      : actions.updateAdvisor(userId, updates);
+    Promise.resolve(promise).then(function() {
+      setSaving(false);
+      onClose();
+    }).catch(function() {
+      setSaving(false);
+      setMsg('⚠ บันทึกไม่สำเร็จ กรุณาลองใหม่');
+    });
+  };
+
+  var lStyle = { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' };
+  var iStyle = { width: '100%', padding: '10px 12px', fontSize: 14, boxSizing: 'border-box' };
+
+  return React.createElement(window.Modal, {
+    open: open, onClose: onClose, title: '✏️ แก้ไขโปรไฟล์', width: '440px'
+  },
+    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+      React.createElement('div', {},
+        React.createElement('label', { style: lStyle }, 'ชื่อ-นามสกุล'),
+        React.createElement('input', { className: 'glass-input', style: iStyle, value: name, onChange: function(e) { setName(e.target.value); setMsg(''); } })
+      ),
+      React.createElement('div', { style: { padding: '12px 16px', background: 'rgba(0,0,0,0.03)', borderRadius: 10 } },
+        React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12 } }, '🔒 เปลี่ยนรหัสผ่าน (ไม่บังคับ)'),
+        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+          React.createElement('div', {},
+            React.createElement('label', { style: lStyle }, 'รหัสผ่านเดิม'),
+            React.createElement('input', { className: 'glass-input', style: iStyle, type: 'password', value: oldPass, onChange: function(e) { setOldPass(e.target.value); setMsg(''); }, placeholder: '••••••' })
+          ),
+          React.createElement('div', {},
+            React.createElement('label', { style: lStyle }, 'รหัสผ่านใหม่'),
+            React.createElement('input', { className: 'glass-input', style: iStyle, type: 'password', value: newPass, onChange: function(e) { setNewPass(e.target.value); setMsg(''); }, placeholder: '••••••' })
+          ),
+          React.createElement('div', {},
+            React.createElement('label', { style: lStyle }, 'ยืนยันรหัสผ่านใหม่'),
+            React.createElement('input', { className: 'glass-input', style: iStyle, type: 'password', value: confirmPass, onChange: function(e) { setConfirmPass(e.target.value); setMsg(''); }, placeholder: '••••••' })
+          )
+        )
+      ),
+      msg && React.createElement('div', { style: { fontSize: 13, color: '#dc2626' } }, msg),
+      React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
+        React.createElement('button', { className: 'btn-secondary', onClick: onClose }, 'ยกเลิก'),
+        React.createElement('button', { className: 'btn-primary', disabled: saving, onClick: handleSave }, saving ? '⏳ กำลังบันทึก...' : '💾 บันทึก')
+      )
+    )
+  );
+};
+
 // ---- NAVBAR (shared) ----
-window.Navbar = function({ role, userName, onLogout, onMenuToggle, currentPage, navItems }) {
+window.Navbar = function({ role, userName, onLogout, onMenuToggle, currentPage, navItems, onProfileEdit }) {
   const roleLabels = { admin: '🛡️ Admin', student: '🎓 นักศึกษา', advisor: '👨‍🏫 อาจารย์' };
   const roleColors = { admin: '#e91e8c', student: '#1565c0', advisor: '#2e7d32' };
   const currentLabel = (navItems.find(n => n.key === currentPage) || {}).label || '';
@@ -832,11 +950,16 @@ window.Navbar = function({ role, userName, onLogout, onMenuToggle, currentPage, 
       className: 'nav-center-title',
       style: { fontWeight: 600, fontSize: 15, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, textAlign: 'center', padding: '0 8px' }
     }, currentLabel),
-    // Right: role badge + logout
+    // Right: role badge + profile + logout
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' } },
       React.createElement('span', {
         style: { background: roleColors[role] + '22', color: roleColors[role], padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }
       }, roleLabels[role]),
+      onProfileEdit && React.createElement('button', {
+        onClick: onProfileEdit,
+        title: 'แก้ไขโปรไฟล์',
+        style: { background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.7)', borderRadius: 10, padding: '7px 10px', cursor: 'pointer', fontSize: 15 }
+      }, '✏️'),
       React.createElement('button', {
         onClick: onLogout,
         style: { background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.7)', borderRadius: 10, padding: '7px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#4b5563', fontFamily: 'Sarabun,sans-serif', fontWeight: 600 }
@@ -899,9 +1022,10 @@ window.Sidebar = function({ navItems, currentPage, onNavigate, isOpen, onClose }
 };
 
 // ---- LAYOUT WRAPPER ----
-window.AppLayout = function({ role, userName, navItems, currentPage, onNavigate, onLogout, children }) {
+window.AppLayout = function({ role, userName, navItems, currentPage, onNavigate, onLogout, currentUserId, students, advisors, actions, children }) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
+  const [showProfileEdit, setShowProfileEdit] = React.useState(false);
 
   React.useEffect(function() {
     function onResize() { setIsMobile(window.innerWidth <= 768); }
@@ -909,11 +1033,20 @@ window.AppLayout = function({ role, userName, navItems, currentPage, onNavigate,
     return function() { window.removeEventListener('resize', onResize); };
   }, []);
 
+  var canEditProfile = role === 'student' || role === 'advisor';
+
   return React.createElement('div', { style: { minHeight: '100vh', display: 'flex', flexDirection: 'column' } },
+    canEditProfile && React.createElement(window.ProfileEditModal, {
+      open: showProfileEdit,
+      onClose: function() { setShowProfileEdit(false); },
+      role: role, userId: currentUserId,
+      students: students || [], advisors: advisors || [], actions: actions || {}
+    }),
     React.createElement(window.Navbar, {
       role, userName, onLogout,
       onMenuToggle: function() { setSidebarOpen(function(v) { return !v; }); },
-      currentPage, navItems
+      currentPage, navItems,
+      onProfileEdit: canEditProfile ? function() { setShowProfileEdit(true); } : null
     }),
     React.createElement('div', { style: { display: 'flex', flex: 1, minHeight: 0 } },
       // Desktop: always-visible sidebar

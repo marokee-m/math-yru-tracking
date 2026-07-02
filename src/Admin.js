@@ -6,7 +6,9 @@
 window.AdminCurriculumView = function() {
   const { state, actions } = window.useApp();
   const { courses, curriculumMeta } = state;
+  const curricula = state.curricula || [];
 
+  const [selectedCurriculumId, setSelectedCurriculumId] = React.useState('__default__');
   const [selectedCategory, setSelectedCategory] = React.useState('all');
   const [selectedYear, setSelectedYear] = React.useState('all');
   const [showAddModal, setShowAddModal] = React.useState(false);
@@ -17,6 +19,8 @@ window.AdminCurriculumView = function() {
   const [bulkText, setBulkText] = React.useState('');
   const [bulkPreview, setBulkPreview] = React.useState([]);
   const [bulkError, setBulkError] = React.useState('');
+  const [showNewCurrModal, setShowNewCurrModal] = React.useState(false);
+  const [newCurrName, setNewCurrName] = React.useState('');
 
   const [form, setForm] = React.useState({
     code: '', name: '', credits: 3, category: 'general', year: 1, semester: 1, isElective: false
@@ -40,7 +44,12 @@ window.AdminCurriculumView = function() {
 
   const categories = curriculumMeta.categories;
 
-  const filtered = courses.filter(c => {
+  const curriculumCourses = courses.filter(c => {
+    if (selectedCurriculumId === '__default__') return !c.curriculumId || c.curriculumId === '__default__' || c.curriculumId === '';
+    return c.curriculumId === selectedCurriculumId;
+  });
+
+  const filtered = curriculumCourses.filter(c => {
     if (selectedCategory !== 'all' && c.category !== selectedCategory) return false;
     if (selectedYear !== 'all' && String(c.year) !== selectedYear) return false;
     if (searchTerm && !c.name.includes(searchTerm) && !c.code.includes(searchTerm)) return false;
@@ -71,7 +80,7 @@ window.AdminCurriculumView = function() {
   };
 
   const openAdd = () => {
-    setForm({ code: '', name: '', credits: 3, category: 'general', year: 1, semester: 1, isElective: false });
+    setForm({ code: '', name: '', credits: 3, category: 'general', year: 1, semester: 1, isElective: false, curriculumId: selectedCurriculumId });
     setEditingCourse(null);
     setShowAddModal(true);
   };
@@ -124,7 +133,7 @@ window.AdminCurriculumView = function() {
     let imported = 0;
     bulkPreview.forEach(c => {
       if (!courses.find(ex => ex.code === c.code)) {
-        actions.addCourse(c);
+        actions.addCourse({ ...c, curriculumId: selectedCurriculumId });
         imported++;
       }
     });
@@ -134,21 +143,60 @@ window.AdminCurriculumView = function() {
   };
 
   const creditSummary = categories.map(cat => {
-    const catCourses = courses.filter(c => c.category === cat.id);
+    const catCourses = curriculumCourses.filter(c => c.category === cat.id);
     const total = catCourses.reduce((sum, c) => sum + c.credits, 0);
     return { ...cat, totalCourses: catCourses.length, totalCredits: total };
   });
 
+  const handleAddCurriculum = () => {
+    const name = newCurrName.trim();
+    if (!name) return;
+    const id = 'curr_' + Date.now();
+    actions.addCurriculum({ id, name });
+    setSelectedCurriculumId(id);
+    setNewCurrName('');
+    setShowNewCurrModal(false);
+  };
+
   return React.createElement(React.Fragment, null,
     React.createElement('div', { className: 'fade-in' },
+    // Curriculum selector
+    React.createElement('div', { style: { marginBottom: 20, padding: '14px 18px', background: 'rgba(255,255,255,0.4)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.6)' } },
+      React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: '#6b7280', marginBottom: 10 } }, '📚 เลือกหลักสูตร'),
+      React.createElement('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' } },
+        // Default curriculum tab
+        React.createElement('button', {
+          onClick: () => setSelectedCurriculumId('__default__'),
+          style: { padding: '8px 18px', borderRadius: 20, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'Sarabun,sans-serif', background: selectedCurriculumId === '__default__' ? 'linear-gradient(135deg,#e91e8c,#f06292)' : 'rgba(255,255,255,0.5)', color: selectedCurriculumId === '__default__' ? 'white' : '#374151', border: '1px solid ' + (selectedCurriculumId === '__default__' ? 'transparent' : 'rgba(0,0,0,0.1)') }
+        }, curriculumMeta.name || 'หลักสูตรหลัก'),
+        // Dynamic curricula tabs
+        curricula.map(c => React.createElement('button', {
+          key: c.id,
+          onClick: () => setSelectedCurriculumId(c.id),
+          style: { padding: '8px 18px', borderRadius: 20, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'Sarabun,sans-serif', background: selectedCurriculumId === c.id ? 'linear-gradient(135deg,#e91e8c,#f06292)' : 'rgba(255,255,255,0.5)', color: selectedCurriculumId === c.id ? 'white' : '#374151', border: '1px solid ' + (selectedCurriculumId === c.id ? 'transparent' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', gap: 6 }
+        },
+          c.name,
+          React.createElement('span', {
+            onClick: function(e) { e.stopPropagation(); if (window.confirm('ลบหลักสูตร "' + c.name + '"?')) { actions.deleteCurriculum(c.id); if (selectedCurriculumId === c.id) setSelectedCurriculumId('__default__'); } },
+            style: { fontSize: 12, opacity: 0.6, cursor: 'pointer', marginLeft: 2 }
+          }, '✕')
+        )),
+        // Add curriculum button
+        React.createElement('button', {
+          onClick: () => { setNewCurrName(''); setShowNewCurrModal(true); },
+          style: { padding: '8px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer', fontFamily: 'Sarabun,sans-serif', background: 'rgba(255,255,255,0.5)', color: '#6b7280', border: '1px dashed rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', gap: 5 }
+        }, '+ เพิ่มหลักสูตรใหม่')
+      )
+    ),
+
     // Page header
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
       React.createElement('div', {},
         React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937', marginBottom: 4 } }, '📚 จัดการหลักสูตร'),
-        React.createElement('p', { style: { fontSize: 13, color: '#6b7280' } }, curriculumMeta.name + ' — ' + curriculumMeta.totalCredits + ' หน่วยกิตรวม')
+        React.createElement('p', { style: { fontSize: 13, color: '#6b7280' } }, (selectedCurriculumId === '__default__' ? (curriculumMeta.name || 'หลักสูตรหลัก') : (curricula.find(c => c.id === selectedCurriculumId) || {}).name || '') + ' — ' + curriculumCourses.length + ' รายวิชา')
       ),
       React.createElement('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
-        React.createElement('button', { className: 'btn-ghost', onClick: openSettings, style: { fontSize: 14, padding: '10px 18px', border: '1px solid rgba(255,255,255,0.5)' } }, '⚙️ ตั้งค่าหลักสูตร'),
+        selectedCurriculumId === '__default__' && React.createElement('button', { className: 'btn-ghost', onClick: openSettings, style: { fontSize: 14, padding: '10px 18px', border: '1px solid rgba(255,255,255,0.5)' } }, '⚙️ ตั้งค่าหลักสูตร'),
         React.createElement('button', { className: 'btn-secondary', onClick: () => setShowBulkModal(true), style: { fontSize: 14, padding: '10px 18px' } }, '📋 นำเข้าหลายรายการ'),
         React.createElement('button', { className: 'btn-primary', onClick: openAdd, style: { display: 'flex', alignItems: 'center', gap: 8 } },
           React.createElement(window.Icon, { name: 'add', size: 18, color: 'white' }), 'เพิ่มรายวิชา'
@@ -414,6 +462,32 @@ window.AdminCurriculumView = function() {
           React.createElement('button', { className: 'btn-primary', onClick: handleSaveSettings }, '💾 บันทึกการตั้งค่า')
         )
       )
+    ),
+
+    // New Curriculum Modal
+    React.createElement(window.Modal, {
+      open: showNewCurrModal,
+      onClose: function() { setShowNewCurrModal(false); },
+      title: '➕ เพิ่มหลักสูตรใหม่',
+      width: '380px'
+    },
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+        React.createElement('div', {},
+          React.createElement('label', { style: { fontSize: 13, color: '#6b7280', marginBottom: 6, display: 'block', fontWeight: 600 } }, 'ชื่อหลักสูตร *'),
+          React.createElement('input', {
+            className: 'glass-input',
+            value: newCurrName,
+            onChange: function(e) { setNewCurrName(e.target.value); },
+            placeholder: 'เช่น หลักสูตรครุศาสตร์บัณฑิต 2565',
+            style: { width: '100%', padding: '10px 12px', fontSize: 14, boxSizing: 'border-box' },
+            onKeyDown: function(e) { if (e.key === 'Enter') handleAddCurriculum(); }
+          })
+        ),
+        React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
+          React.createElement('button', { className: 'btn-secondary', onClick: function() { setShowNewCurrModal(false); } }, 'ยกเลิก'),
+          React.createElement('button', { className: 'btn-primary', onClick: handleAddCurriculum }, '✅ เพิ่มหลักสูตร')
+        )
+      )
     )
   ); // end Fragment
 };
@@ -435,7 +509,7 @@ window.AdminUserView = function() {
   const [bulkError, setBulkError] = React.useState('');
   const [showPassIds, setShowPassIds] = React.useState({});
 
-  const emptyStudent = { id: '', studentId: '', name: '', username: '', password: '1234', advisorId: '', year: 1, currentSemester: 1, enrollments: [] };
+  const emptyStudent = { id: '', studentId: '', name: '', username: '', password: '1234', advisorId: '', year: 1, currentSemester: 1, enrollments: [], curriculumId: '' };
   const emptyAdvisor = { id: '', name: '', username: '', password: '1234', email: '', department: 'สาขาวิชาการประถมศึกษา', phone: '', studentIds: [] };
   const [form, setForm] = React.useState(emptyStudent);
 
@@ -698,11 +772,20 @@ window.AdminUserView = function() {
                 React.createElement('input', { className: 'glass-input', value: form.password || '', onChange: e => setForm(f => ({ ...f, password: e.target.value })), style: { width: '100%', padding: '10px 12px', fontSize: 14 }, placeholder: '1234' })
               )
             ),
-            React.createElement('div', {},
-              React.createElement('label', { style: { fontSize: 13, color: '#6b7280', marginBottom: 6, display: 'block' } }, 'อาจารย์ที่ปรึกษา'),
-              React.createElement('select', { className: 'glass-input', value: form.advisorId || '', onChange: e => setForm(f => ({ ...f, advisorId: e.target.value })), style: { width: '100%', padding: '10px 12px', fontSize: 14 } },
-                React.createElement('option', { value: '' }, '-- เลือกอาจารย์ --'),
-                advisors.map(a => React.createElement('option', { key: a.id, value: a.id }, a.name))
+            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } },
+              React.createElement('div', {},
+                React.createElement('label', { style: { fontSize: 13, color: '#6b7280', marginBottom: 6, display: 'block' } }, 'อาจารย์ที่ปรึกษา'),
+                React.createElement('select', { className: 'glass-input', value: form.advisorId || '', onChange: e => setForm(f => ({ ...f, advisorId: e.target.value })), style: { width: '100%', padding: '10px 12px', fontSize: 14 } },
+                  React.createElement('option', { value: '' }, '-- เลือกอาจารย์ --'),
+                  advisors.map(a => React.createElement('option', { key: a.id, value: a.id }, a.name))
+                )
+              ),
+              React.createElement('div', {},
+                React.createElement('label', { style: { fontSize: 13, color: '#6b7280', marginBottom: 6, display: 'block' } }, 'หลักสูตร'),
+                React.createElement('select', { className: 'glass-input', value: form.curriculumId || '', onChange: e => setForm(f => ({ ...f, curriculumId: e.target.value })), style: { width: '100%', padding: '10px 12px', fontSize: 14 } },
+                  React.createElement('option', { value: '' }, '-- เลือกหลักสูตร --'),
+                  (state.curricula || []).map(c => React.createElement('option', { key: c.id, value: c.id }, c.name))
+                )
               )
             ),
             React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 } },

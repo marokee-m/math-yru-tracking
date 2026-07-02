@@ -93,12 +93,16 @@ function App() {
   }
 
   return React.createElement(window.AppLayout, {
-    role:        currentRole,
-    userName:    getUserName(),
-    navItems:    navConfigs[currentRole] || [],
-    currentPage: currentPage,
-    onNavigate:  setCurrentPage,
-    onLogout:    actions.logout,
+    role:          currentRole,
+    userName:      getUserName(),
+    navItems:      navConfigs[currentRole] || [],
+    currentPage:   currentPage,
+    onNavigate:    setCurrentPage,
+    onLogout:      actions.logout,
+    currentUserId: currentUserId,
+    students:      students,
+    advisors:      advisors,
+    actions:       actions,
   }, renderPage());
 }
 
