@@ -240,84 +240,86 @@ window.AppProvider = function({ children }) {
   });
 
   // db ref (set once on init)
-  const dbRef = React.useRef(null);
-  var storageRef = React.useRef(null);
+  var sbRef = React.useRef(null);
+
+  // ── Reload helpers ──────────────────────────────────────────
+  var reloadStudents = React.useCallback(async function() {
+    if (!sbRef.current) return;
+    var res = await sbRef.current.from('students').select('*');
+    if (res.data) setState(function(s) { return Object.assign({}, s, { students: res.data }); });
+  }, []);
+
+  var reloadAdvisors = React.useCallback(async function() {
+    if (!sbRef.current) return;
+    var res = await sbRef.current.from('advisors').select('*');
+    if (res.data) setState(function(s) { return Object.assign({}, s, { advisors: res.data }); });
+  }, []);
+
+  var reloadCourses = React.useCallback(async function() {
+    if (!sbRef.current) return;
+    var res = await sbRef.current.from('courses').select('*');
+    if (res.data) setState(function(s) { return Object.assign({}, s, { courses: res.data }); });
+  }, []);
+
+  var reloadSettings = React.useCallback(async function() {
+    if (!sbRef.current) return;
+    var res = await sbRef.current.from('settings').select('*').eq('id', 'curriculum').single();
+    if (res.data) setState(function(s) { return Object.assign({}, s, { curriculumMeta: res.data.data || s.curriculumMeta }); });
+  }, []);
+
+  var reloadEquipment = React.useCallback(async function() {
+    if (!sbRef.current) return;
+    var res = await sbRef.current.from('equipment').select('*');
+    if (res.data) setState(function(s) { return Object.assign({}, s, { equipment: res.data }); });
+  }, []);
+
+  var reloadBorrows = React.useCallback(async function() {
+    if (!sbRef.current) return;
+    var res = await sbRef.current.from('borrow_requests').select('*').order('createdAt', { ascending: false });
+    if (res.data) setState(function(s) { return Object.assign({}, s, { borrowRequests: res.data }); });
+  }, []);
 
   React.useEffect(function() {
-    var db;
+    var sb;
     try {
-      db = window.initFirebase();
-      dbRef.current = db;
-      storageRef.current = firebase.storage();
+      sb = window.initSupabase();
+      sbRef.current = sb;
     } catch(err) {
-      setState(function(s) { return Object.assign({}, s, { loading: false, dbError: 'Firebase config ไม่ถูกต้อง: ' + err.message }); });
+      setState(function(s) { return Object.assign({}, s, { loading: false, dbError: 'Supabase config ไม่ถูกต้อง: ' + err.message }); });
       return;
     }
 
-    // Seed then subscribe
-    window.seedFirestoreIfEmpty(db).then(function() {
-      var loaded = { students: false, advisors: false, courses: false };
-      var data = { students: [], advisors: [], courses: [] };
-
-      function trySetReady(key, arr) {
-        data[key] = arr;
-        loaded[key] = true;
-        if (loaded.students && loaded.advisors && loaded.courses) {
-          setState(function(s) { return Object.assign({}, s, { loading: false, students: data.students, advisors: data.advisors, courses: data.courses }); });
-        } else {
-          setState(function(s) { return Object.assign({}, s, { [key]: arr }); });
-        }
-      }
-
-      var unsubS = db.collection('students').onSnapshot(function(snap) {
-        trySetReady('students', snap.docs.map(function(d) { return d.data(); }));
-      }, function(err) { setState(function(s) { return Object.assign({}, s, { dbError: err.message }); }); });
-
-      var unsubA = db.collection('advisors').onSnapshot(function(snap) {
-        trySetReady('advisors', snap.docs.map(function(d) { return d.data(); }));
-      });
-
-      var unsubC = db.collection('courses').onSnapshot(function(snap) {
-        trySetReady('courses', snap.docs.map(function(d) { return d.data(); }));
-      });
-
-      // Listen to curriculum settings
-      db.collection('settings').doc('curriculum').onSnapshot(function(doc) {
-        if (doc.exists) {
-          setState(function(s) { return Object.assign({}, s, { curriculumMeta: doc.data() }); });
-        }
-      });
-
-      // Equipment listener
-      db.collection('equipment').onSnapshot(function(snap) {
-        var list = [];
-        snap.forEach(function(doc) { list.push(Object.assign({ id: doc.id }, doc.data())); });
-        setState(function(s) { return Object.assign({}, s, { equipment: list }); });
-      });
-
-      // BorrowRequests listener
-      db.collection('borrowRequests').orderBy('createdAt', 'desc').onSnapshot(function(snap) {
-        var list = [];
-        snap.forEach(function(doc) { list.push(Object.assign({ id: doc.id }, doc.data())); });
-        setState(function(s) { return Object.assign({}, s, { borrowRequests: list }); });
-      });
-
-      // store cleanup
-      dbRef._unsub = function() { unsubS(); unsubA(); unsubC(); };
+    window.seedSupabaseIfEmpty(sb).then(async function() {
+      await Promise.all([
+        reloadStudents(), reloadAdvisors(), reloadCourses(),
+        reloadSettings(), reloadEquipment(), reloadBorrows(),
+      ]);
+      setState(function(s) { return Object.assign({}, s, { loading: false }); });
     }).catch(function(err) {
-      setState(function(s) { return Object.assign({}, s, { loading: false, dbError: 'Firestore error: ' + err.message }); });
+      setState(function(s) { return Object.assign({}, s, { loading: false, dbError: 'Supabase error: ' + err.message }); });
     });
 
-    return function() { if (dbRef._unsub) dbRef._unsub(); };
+    // Realtime (ต้องเปิด Replication ใน Supabase Dashboard ก่อน)
+    var channel = sb.channel('db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, reloadStudents)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'advisors' }, reloadAdvisors)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'courses' }, reloadCourses)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, reloadSettings)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, reloadEquipment)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, reloadBorrows)
+      .subscribe();
+
+    return function() { sb.removeChannel(channel); };
   }, []);
 
-  // Helper: update student doc in Firestore
+  // Optimistic update: อัปเดต local state ทันที แล้ว write Supabase background
   function updateStudentDoc(id, updater) {
     setState(function(s) {
-      var updated = s.students.map(function(st) { return st.id === id ? updater(st) : st; });
-      var doc = updated.find(function(st) { return st.id === id; });
-      if (dbRef.current && doc) dbRef.current.collection('students').doc(id).set(doc);
-      return Object.assign({}, s, { students: updated });
+      var st = s.students.find(function(x) { return x.id === id; });
+      if (!st) return s;
+      var updated = updater(st);
+      if (sbRef.current) sbRef.current.from('students').update(updated).eq('id', id);
+      return Object.assign({}, s, { students: s.students.map(function(x) { return x.id === id ? updated : x; }) });
     });
   }
 
@@ -331,7 +333,7 @@ window.AppProvider = function({ children }) {
       setState(function(s) { return Object.assign({}, s, { currentRole: null, currentUserId: null }); });
     },
 
-    // Enrollment (write full student doc)
+    // Enrollments (optimistic)
     addEnrollment: function(studentId, enrollment) {
       updateStudentDoc(studentId, function(st) {
         return Object.assign({}, st, { enrollments: st.enrollments.concat([enrollment]) });
@@ -361,87 +363,87 @@ window.AppProvider = function({ children }) {
 
     // Courses
     addCourse: function(course) {
-      if (dbRef.current) dbRef.current.collection('courses').doc(course.code).set(course);
+      if (sbRef.current) sbRef.current.from('courses').insert(course).then(reloadCourses);
     },
     updateCourse: function(code, updates) {
-      if (dbRef.current) dbRef.current.collection('courses').doc(code).update(updates);
+      if (sbRef.current) sbRef.current.from('courses').update(updates).eq('code', code).then(reloadCourses);
     },
     deleteCourse: function(code) {
-      if (dbRef.current) dbRef.current.collection('courses').doc(code).delete();
+      if (sbRef.current) sbRef.current.from('courses').delete().eq('code', code).then(reloadCourses);
     },
     addCourses: function(arr) {
-      if (!dbRef.current) return;
-      var batch = dbRef.current.batch();
-      arr.forEach(function(c) { batch.set(dbRef.current.collection('courses').doc(c.code), c); });
-      batch.commit();
+      if (sbRef.current) sbRef.current.from('courses').insert(arr).then(reloadCourses);
     },
 
     // Students
     addStudent: function(student) {
-      if (dbRef.current) dbRef.current.collection('students').doc(student.id).set(student);
+      if (sbRef.current) sbRef.current.from('students').insert(student).then(reloadStudents);
     },
     addStudents: function(arr) {
-      if (!dbRef.current) return;
-      var batch = dbRef.current.batch();
-      arr.forEach(function(s) { batch.set(dbRef.current.collection('students').doc(s.id), s); });
-      batch.commit();
+      if (sbRef.current) sbRef.current.from('students').insert(arr).then(reloadStudents);
     },
-    updateStudent: function(id, updates) {
-      if (dbRef.current) dbRef.current.collection('students').doc(id).update(updates);
+    updateStudent: function(studentId, data) {
+      if (sbRef.current) sbRef.current.from('students').update(data).eq('id', studentId);
+      setState(function(s) {
+        return Object.assign({}, s, { students: s.students.map(function(st) {
+          return st.id === studentId ? Object.assign({}, st, data) : st;
+        })});
+      });
     },
     deleteStudent: function(id) {
-      if (dbRef.current) dbRef.current.collection('students').doc(id).delete();
+      if (sbRef.current) sbRef.current.from('students').delete().eq('id', id).then(reloadStudents);
     },
 
-    updateStudent: function(studentId, data) {
-      if (dbRef.current) {
-        dbRef.current.collection('students').doc(studentId).update(data);
-      }
-    },
-
-    getStorage: function() { return storageRef.current; },
+    getSupabase: function() { return sbRef.current; },
 
     updateCurriculumMeta: function(meta) {
-      if (dbRef.current) dbRef.current.collection('settings').doc('curriculum').set(meta);
+      if (sbRef.current) sbRef.current.from('settings').upsert({ id: 'curriculum', data: meta });
       setState(function(s) { return Object.assign({}, s, { curriculumMeta: meta }); });
     },
 
-    // Equipment CRUD
+    // Equipment
     addEquipment: function(data) {
-      if (dbRef.current) return dbRef.current.collection('equipment').add(data);
+      if (!sbRef.current) return Promise.resolve();
+      var item = Object.assign({ id: crypto.randomUUID() }, data);
+      return sbRef.current.from('equipment').insert(item).then(reloadEquipment);
     },
     updateEquipment: function(id, data) {
-      if (dbRef.current) return dbRef.current.collection('equipment').doc(id).update(data);
+      if (!sbRef.current) return Promise.resolve();
+      setState(function(s) {
+        return Object.assign({}, s, { equipment: s.equipment.map(function(e) { return e.id === id ? Object.assign({}, e, data) : e; }) });
+      });
+      return sbRef.current.from('equipment').update(data).eq('id', id).then(reloadEquipment);
     },
     deleteEquipment: function(id) {
-      if (dbRef.current) return dbRef.current.collection('equipment').doc(id).delete();
+      if (sbRef.current) sbRef.current.from('equipment').delete().eq('id', id).then(reloadEquipment);
     },
+
     // Borrow Requests
     addBorrowRequest: function(data) {
-      if (dbRef.current) {
-        var req = Object.assign({ createdAt: new Date().toISOString(), status: 'pending' }, data);
-        return dbRef.current.collection('borrowRequests').add(req);
-      }
+      if (!sbRef.current) return Promise.resolve();
+      var req = Object.assign({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), status: 'pending' }, data);
+      return sbRef.current.from('borrow_requests').insert(req).then(reloadBorrows);
     },
     updateBorrowRequest: function(id, data) {
-      if (dbRef.current) return dbRef.current.collection('borrowRequests').doc(id).update(data);
+      if (!sbRef.current) return Promise.resolve();
+      setState(function(s) {
+        return Object.assign({}, s, { borrowRequests: s.borrowRequests.map(function(r) { return r.id === id ? Object.assign({}, r, data) : r; }) });
+      });
+      return sbRef.current.from('borrow_requests').update(data).eq('id', id).then(reloadBorrows);
     },
 
     // Advisors
     addAdvisor: function(advisor) {
-      if (dbRef.current) dbRef.current.collection('advisors').doc(advisor.id).set(advisor);
+      if (sbRef.current) sbRef.current.from('advisors').insert(advisor).then(reloadAdvisors);
     },
     addAdvisors: function(arr) {
-      if (!dbRef.current) return;
-      var batch = dbRef.current.batch();
-      arr.forEach(function(a) { batch.set(dbRef.current.collection('advisors').doc(a.id), a); });
-      batch.commit();
+      if (sbRef.current) sbRef.current.from('advisors').insert(arr).then(reloadAdvisors);
     },
     updateAdvisor: function(id, updates) {
-      if (dbRef.current) dbRef.current.collection('advisors').doc(id).update(updates);
+      if (sbRef.current) sbRef.current.from('advisors').update(updates).eq('id', id).then(reloadAdvisors);
     },
     deleteAdvisor: function(id) {
-      if (dbRef.current) dbRef.current.collection('advisors').doc(id).delete();
+      if (sbRef.current) sbRef.current.from('advisors').delete().eq('id', id).then(reloadAdvisors);
     },
   };
 
@@ -454,7 +456,7 @@ window.AppProvider = function({ children }) {
         React.createElement(window.MathYruLogo, { size: 72 })
       ),
       React.createElement('div', { style: { fontSize: 18, color: '#6b7280', fontWeight: 600 } }, '⏳ กำลังเชื่อมต่อฐานข้อมูล...'),
-      React.createElement('div', { style: { fontSize: 13, color: '#9ca3af' } }, 'Connecting to Firebase Firestore')
+      React.createElement('div', { style: { fontSize: 13, color: '#9ca3af' } }, 'Connecting to Supabase')
     );
   }
 
@@ -464,12 +466,12 @@ window.AppProvider = function({ children }) {
       style: { minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }
     },
       React.createElement('div', { style: { fontSize: 48 } }, '⚠️'),
-      React.createElement('div', { style: { fontSize: 18, color: '#dc2626', fontWeight: 700 } }, 'เชื่อมต่อ Firebase ไม่ได้'),
+      React.createElement('div', { style: { fontSize: 18, color: '#dc2626', fontWeight: 700 } }, 'เชื่อมต่อ Supabase ไม่ได้'),
       React.createElement('div', { style: { fontSize: 13, color: '#6b7280', background: 'rgba(255,255,255,0.8)', padding: '12px 20px', borderRadius: 10, maxWidth: 480, textAlign: 'center' } },
         state.dbError
       ),
       React.createElement('div', { style: { fontSize: 13, color: '#6b7280', textAlign: 'center' } },
-        'กรุณาแก้ไขค่า Firebase Config ในไฟล์ ', React.createElement('code', null, 'src/firebase-config.js'),
+        'กรุณาแก้ไขค่า Supabase Config ในไฟล์ ', React.createElement('code', null, 'src/supabase-config.js'),
         ' แล้ว refresh หน้าเว็บ'
       )
     );

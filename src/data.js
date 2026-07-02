@@ -433,55 +433,39 @@ window.AppData = {
 };
 
 // ============================================================
-// FIREBASE INIT + SEED
+// SUPABASE INIT + SEED
 // เรียกใช้จาก AppProvider ตอน mount
 // ============================================================
-window.initFirebase = function() {
-  if (firebase.apps.length === 0) {
-    firebase.initializeApp(window.FIREBASE_CONFIG);
-  }
-  return firebase.firestore();
+window.initSupabase = function() {
+  if (window._sb) return window._sb;
+  window._sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  return window._sb;
 };
 
-// เติมข้อมูลตัวอย่างถ้า collection ยังว่างอยู่
-window.seedFirestoreIfEmpty = async function(db) {
+// เติมข้อมูลตัวอย่างถ้าตาราง students ยังว่างอยู่
+window.seedSupabaseIfEmpty = async function(sb) {
   if (!window.SEED_ON_EMPTY) return;
 
-  const snap = await db.collection('students').limit(1).get();
-  if (!snap.empty) return; // มีข้อมูลแล้ว ไม่ seed ซ้ำ
+  var check = await sb.from('students').select('id').limit(1);
+  if (check.error) throw new Error('ตรวจสอบ Supabase ไม่ได้: ' + check.error.message);
+  if (check.data && check.data.length > 0) return; // มีข้อมูลแล้ว
 
-  console.log('🌱 Seeding Firestore with initial data...');
-  const batch = db.batch();
+  console.log('🌱 Seeding Supabase with initial data...');
 
-  // Students
-  window.AppData.INITIAL_STUDENTS.forEach(function(s) {
-    batch.set(db.collection('students').doc(s.id), s);
-  });
+  var r1 = await sb.from('students').insert(window.AppData.INITIAL_STUDENTS);
+  if (r1.error) throw new Error('seed students: ' + r1.error.message);
 
-  // Advisors
-  window.AppData.INITIAL_ADVISORS.forEach(function(a) {
-    batch.set(db.collection('advisors').doc(a.id), a);
-  });
+  var r2 = await sb.from('advisors').insert(window.AppData.INITIAL_ADVISORS);
+  if (r2.error) throw new Error('seed advisors: ' + r2.error.message);
 
-  // Courses
-  window.AppData.COURSES.forEach(function(c) {
-    batch.set(db.collection('courses').doc(c.code), c);
-  });
+  var r3 = await sb.from('courses').insert(window.AppData.COURSES);
+  if (r3.error) throw new Error('seed courses: ' + r3.error.message);
 
-  // Curriculum meta
-  batch.set(db.collection('settings').doc('curriculum'), window.AppData.CURRICULUM_META);
+  var r4 = await sb.from('settings').upsert({ id: 'curriculum', data: window.AppData.CURRICULUM_META });
+  if (r4.error) throw new Error('seed settings: ' + r4.error.message);
 
-  await batch.commit();
-  console.log('✅ Firestore seeded successfully');
+  var r5 = await sb.from('equipment').insert(window.AppData.INITIAL_EQUIPMENT);
+  if (r5.error) throw new Error('seed equipment: ' + r5.error.message);
 
-  // Seed equipment
-  var eqSnap = await db.collection('equipment').limit(1).get();
-  if (eqSnap.empty) {
-    var eqBatch = db.batch();
-    window.AppData.INITIAL_EQUIPMENT.forEach(function(eq) {
-      eqBatch.set(db.collection('equipment').doc(eq.id), eq);
-    });
-    await eqBatch.commit();
-    console.log('✅ Seeded equipment');
-  }
+  console.log('✅ Supabase seeded successfully');
 };

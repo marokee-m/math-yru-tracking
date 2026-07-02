@@ -57,30 +57,18 @@ window.AdminEquipmentView = function() {
   var handleUploadAndSave = function() {
     if (!form.name.trim()) { setMsg('⚠ กรุณากรอกชื่ออุปกรณ์'); return; }
     if (imageFile) {
-      var storage = actions.getStorage ? actions.getStorage() : null;
-      if (!storage) { setMsg('⚠ Firebase Storage ยังไม่พร้อม'); return; }
-      setUploading(true); setUploadProgress(10); setMsg('');
+      var sb = actions.getSupabase ? actions.getSupabase() : null;
+      if (!sb) { setMsg('⚠ Supabase ยังไม่พร้อม'); return; }
+      setUploading(true); setUploadProgress(30); setMsg('');
       var ext = imageFile.name.split('.').pop() || 'jpg';
       var path = 'equipment/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
-      var ref = storage.ref(path);
-      var uploadTask = ref.put(imageFile);
-      uploadTask.on('state_changed',
-        function(snapshot) {
-          var pct = Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100);
-          setUploadProgress(pct);
-        },
-        function(err) {
-          setUploading(false);
-          setMsg('⚠ อัปโหลดไม่สำเร็จ: ' + (err.message || 'ลองใหม่'));
-        },
-        function() {
-          ref.getDownloadURL().then(function(url) {
-            setUploading(false);
-            var data = Object.assign({}, form, { imageUrl: url, totalQuantity: parseInt(form.totalQuantity) || 1, availableQuantity: parseInt(form.availableQuantity) || 1 });
-            doSave(data);
-          });
-        }
-      );
+      sb.storage.from('equipment-images').upload(path, imageFile, { upsert: true }).then(function(res) {
+        setUploading(false); setUploadProgress(0);
+        if (res.error) { setMsg('⚠ อัปโหลดไม่สำเร็จ: ' + res.error.message); return; }
+        var url = sb.storage.from('equipment-images').getPublicUrl(path).data.publicUrl;
+        var data = Object.assign({}, form, { imageUrl: url, totalQuantity: parseInt(form.totalQuantity) || 1, availableQuantity: parseInt(form.availableQuantity) || 1 });
+        doSave(data);
+      });
     } else {
       var data = Object.assign({}, form, { totalQuantity: parseInt(form.totalQuantity) || 1, availableQuantity: parseInt(form.availableQuantity) || 1 });
       doSave(data);
@@ -200,7 +188,7 @@ window.AdminEquipmentView = function() {
             React.createElement('div', { style: { flex: 1 } },
               React.createElement('button', { type: 'button', className: 'btn-ghost', style: { fontSize: 13, marginBottom: 8 }, onClick: function() { if (fileInputRef.current) fileInputRef.current.click(); } }, '📁 เลือกรูปภาพ'),
               React.createElement('div', { style: { fontSize: 12, color: '#9ca3af' } }, 'รองรับ JPG, PNG ขนาดไม่เกิน 5MB'),
-              React.createElement('div', { style: { fontSize: 12, color: '#9ca3af', marginTop: 4 } }, 'ระบบจะอัปโหลดไปยัง Firebase Storage โดยอัตโนมัติ'),
+              React.createElement('div', { style: { fontSize: 12, color: '#9ca3af', marginTop: 4 } }, 'ระบบจะอัปโหลดไปยัง Supabase Storage โดยอัตโนมัติ'),
               uploading && React.createElement('div', { style: { marginTop: 8 } },
                 React.createElement('div', { style: { fontSize: 12, color: '#be185d', marginBottom: 4 } }, 'กำลังอัปโหลด... ' + uploadProgress + '%'),
                 React.createElement('div', { style: { height: 6, background: 'rgba(0,0,0,0.08)', borderRadius: 99, overflow: 'hidden' } },

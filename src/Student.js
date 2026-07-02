@@ -716,32 +716,23 @@ window.StudentLicenseView = function({ student, actions }) {
     var isAllowed = allowed.indexOf(file.type) !== -1 || file.name.toLowerCase().endsWith('.pdf');
     if (!isAllowed) { setUploadError('รองรับเฉพาะไฟล์ PDF, JPG, PNG เท่านั้น'); return; }
     if (file.size > 10 * 1024 * 1024) { setUploadError('ขนาดไฟล์ต้องไม่เกิน 10MB'); return; }
-    var storage = actions.getStorage ? actions.getStorage() : null;
-    if (!storage) { setUploadError('Firebase Storage ยังไม่พร้อม กรุณาลองใหม่'); return; }
+    var sb = actions.getSupabase ? actions.getSupabase() : null;
+    if (!sb) { setUploadError('Supabase ยังไม่พร้อม กรุณาลองใหม่'); return; }
     setUploadError('');
     setUploading(true);
     var ext = file.name.split('.').pop() || 'pdf';
     var path = 'license-exams/' + student.id + '/' + Date.now() + '.' + ext;
-    var ref = storage.ref(path);
-    var uploadTask = ref.put(file);
-    uploadTask.on('state_changed',
-      function() {},
-      function(err) {
-        setUploading(false);
-        setUploadError('อัปโหลดไม่สำเร็จ: ' + (err.message || 'ลองใหม่'));
-      },
-      function() {
-        ref.getDownloadURL().then(function(url) {
-          setUploading(false);
-          setFileUrl(url);
-          setFileName(file.name);
-          setSaveMsg && setSaveMsg('');
-          actions.updateStudent(student.id, {
-            licenseExam: { status: 'passed', fileUrl: url, fileName: file.name }
-          });
-        });
-      }
-    );
+    sb.storage.from('license-exams').upload(path, file, { upsert: true }).then(function(res) {
+      setUploading(false);
+      if (res.error) { setUploadError('อัปโหลดไม่สำเร็จ: ' + res.error.message); return; }
+      var url = sb.storage.from('license-exams').getPublicUrl(path).data.publicUrl;
+      setFileUrl(url);
+      setFileName(file.name);
+      setSaveMsg && setSaveMsg('');
+      actions.updateStudent(student.id, {
+        licenseExam: { status: 'passed', fileUrl: url, fileName: file.name }
+      });
+    });
   };
 
   var sc = statusConfig[status] || statusConfig['not_taken'];
