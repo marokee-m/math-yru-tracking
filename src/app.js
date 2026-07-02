@@ -16,12 +16,14 @@ function App() {
       { key: 'quick-input', label: 'บันทึกรายวิชา',    icon: '📋' },
       { key: 'checklist',   label: 'ตรวจสอบหลักสูตร', icon: '✅' },
       { key: 'simulator',   label: 'จำลองเกรด/GPAX',  icon: '🧮' },
+      { key: 'license',     label: 'ใบประกอบวิชาชีพ',  icon: '📜' },
     ],
     advisor: [
       { key: 'dashboard', label: 'Dashboard',          icon: '📊' },
       { key: 'tracking',  label: 'ติดตามรายบุคคล',    icon: '🔍' },
       { key: 'warning',   label: 'Early Warning',       icon: '🚨' },
       { key: 'export',    label: 'Export รายงาน',      icon: '📤' },
+      { key: 'license',   label: 'ใบประกอบวิชาชีพ',   icon: '📜' },
     ],
   };
 
@@ -57,9 +59,11 @@ function App() {
     }
 
     if (currentRole === 'student') {
+      const s = students.find(st => st.id === currentUserId);
       if (currentPage === 'quick-input') return React.createElement(window.StudentQuickInputView);
       if (currentPage === 'checklist')   return React.createElement(window.StudentChecklistView);
       if (currentPage === 'simulator')   return React.createElement(window.StudentSimulatorView);
+      if (currentPage === 'license')     return React.createElement(window.StudentLicenseView, { student: s, actions: actions });
     }
 
     if (currentRole === 'advisor') {
@@ -67,6 +71,7 @@ function App() {
       if (currentPage === 'tracking')  return React.createElement(window.AdvisorTrackingView);
       if (currentPage === 'warning')   return React.createElement(window.AdvisorEarlyWarningView);
       if (currentPage === 'export')    return React.createElement(window.AdvisorExportView);
+      if (currentPage === 'license')   return React.createElement(window.AdvisorLicenseView, { students: state.students, courses: state.courses, advisorId: currentUserId });
     }
 
     return null;

@@ -208,9 +208,9 @@ window.Utils = {
         efCourses.push({ code: e.courseCode, name: course ? course.name : e.courseCode, credits: cr, grade: e.grade });
       }
     });
-    var trend = efCredits === 0 ? 'safe' : efCredits < 6 ? 'safe' : efCredits < 9 ? 'at-risk' : 'ineligible';
+    var trend = efCredits === 0 ? 'safe' : efCredits <= 5 ? 'safe' : efCredits <= 9 ? 'at-risk' : 'ineligible';
     return {
-      eligible: efCredits < 9,
+      eligible: efCredits <= 9,
       efCredits: efCredits,
       efCourses: efCourses,
       trend: trend
@@ -239,12 +239,14 @@ window.AppProvider = function({ children }) {
 
   // db ref (set once on init)
   const dbRef = React.useRef(null);
+  var storageRef = React.useRef(null);
 
   React.useEffect(function() {
     var db;
     try {
       db = window.initFirebase();
       dbRef.current = db;
+      storageRef.current = firebase.storage();
     } catch(err) {
       setState(function(s) { return Object.assign({}, s, { loading: false, dbError: 'Firebase config ไม่ถูกต้อง: ' + err.message }); });
       return;
@@ -374,6 +376,14 @@ window.AppProvider = function({ children }) {
     deleteStudent: function(id) {
       if (dbRef.current) dbRef.current.collection('students').doc(id).delete();
     },
+
+    updateStudent: function(studentId, data) {
+      if (dbRef.current) {
+        dbRef.current.collection('students').doc(studentId).update(data);
+      }
+    },
+
+    getStorage: function() { return storageRef.current; },
 
     updateCurriculumMeta: function(meta) {
       if (dbRef.current) dbRef.current.collection('settings').doc('curriculum').set(meta);
@@ -700,7 +710,7 @@ window.LoginScreen = function() {
         React.createElement('input', {
           className: 'glass-input',
           type: 'text',
-          placeholder: 'admin / รหัสนักศึกษา / username อาจารย์',
+          placeholder: 'username',
           value: username,
           autoComplete: 'username',
           onChange: function(e) { setUsername(e.target.value); setError(''); },

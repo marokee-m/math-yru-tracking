@@ -16,6 +16,8 @@ window.StudentQuickInputView = function() {
   const [successMsg, setSuccessMsg] = React.useState('');
   const [editGrade, setEditGrade] = React.useState(null); // { courseCode, year, semester }
   const [editGradeValue, setEditGradeValue] = React.useState('กำลังเรียน');
+  var [editEnrollment, setEditEnrollment] = React.useState(null); // { idx, enr }
+  var [editForm, setEditForm] = React.useState(null);
 
   const grades = ['กำลังเรียน','A','B+','B','C+','C','D+','D','F','E','W'];
 
@@ -63,7 +65,8 @@ window.StudentQuickInputView = function() {
   const gpax = window.Utils.calcGPAX(student.enrollments, state.courses);
   const totalEarned = window.Utils.totalEarnedCredits(student, state.courses);
 
-  return React.createElement('div', { className: 'fade-in' },
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', { className: 'fade-in' },
     // Header
     React.createElement('div', { style: { marginBottom: 24 } },
       React.createElement('h1', { style: { fontSize: 24, fontWeight: 800, color: '#1f2937', marginBottom: 4 } }, '📋 บันทึกรายวิชา'),
@@ -174,6 +177,7 @@ window.StudentQuickInputView = function() {
                 const course = state.courses.find(c => c.code === enr.courseCode);
                 const status = window.Utils.getGradeStatus(enr.grade);
                 const rowCls = status === 'pass' ? 'course-row-pass' : status === 'studying' ? 'course-row-studying' : status === 'fail' ? 'course-row-fail' : 'course-row-not-taken';
+                const globalIndex = student.enrollments.indexOf(enr);
                 return React.createElement('div', {
                   key: i,
                   className: rowCls,
@@ -189,7 +193,24 @@ window.StudentQuickInputView = function() {
                     style: { padding: '4px 10px', fontSize: 12, display: 'flex', gap: 4, alignItems: 'center' }
                   },
                     React.createElement(window.Icon, { name: 'edit', size: 13 }), 'แก้เกรด'
-                  )
+                  ),
+                  React.createElement('button', {
+                    onClick: function() {
+                      setEditEnrollment({ idx: globalIndex, enr: enr });
+                      setEditForm({ courseCode: enr.courseCode, grade: enr.grade, year: enr.year, semester: enr.semester });
+                    },
+                    style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: '2px 6px', color: '#6b7280', borderRadius: 6 },
+                    title: 'แก้ไข'
+                  }, '✏️'),
+                  React.createElement('button', {
+                    onClick: function() {
+                      if (!window.confirm('ลบรายวิชา ' + enr.courseCode + ' ออกจากประวัติ?')) return;
+                      var newEnrollments = student.enrollments.filter(function(_, idx) { return idx !== globalIndex; });
+                      actions.updateStudent(student.id, { enrollments: newEnrollments });
+                    },
+                    style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: '2px 6px', color: '#dc2626', borderRadius: 6 },
+                    title: 'ลบ'
+                  }, '🗑️')
                 );
               })
             )
@@ -216,6 +237,71 @@ window.StudentQuickInputView = function() {
         React.createElement('div', { style: { display: 'flex', gap: 12, justifyContent: 'flex-end' } },
           React.createElement('button', { className: 'btn-secondary', onClick: () => setEditGrade(null) }, 'ยกเลิก'),
           React.createElement('button', { className: 'btn-primary', onClick: handleSaveGrade }, 'บันทึก')
+        )
+      )
+    )
+  ),
+    // Edit enrollment modal
+    editEnrollment && editForm && React.createElement(window.Modal, {
+      open: true,
+      onClose: function() { setEditEnrollment(null); setEditForm(null); },
+      title: '✏️ แก้ไขรายวิชา',
+      width: '480px'
+    },
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 14, padding: '4px 0' } },
+        React.createElement('div', {},
+          React.createElement('label', { style: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' } }, 'รหัสวิชา'),
+          React.createElement('div', { style: { padding: '10px 12px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, fontSize: 14, color: '#374151' } },
+            editForm.courseCode
+          )
+        ),
+        React.createElement('div', {},
+          React.createElement('label', { style: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' } }, 'เกรด'),
+          React.createElement('select', {
+            className: 'glass-input',
+            value: editForm.grade,
+            onChange: function(e) { setEditForm(function(f) { return Object.assign({}, f, { grade: e.target.value }); }); },
+            style: { width: '100%', padding: '10px 12px', fontSize: 14 }
+          },
+            ['กำลังเรียน','A','B+','B','C+','C','D+','D','F','E','W'].map(function(g) {
+              return React.createElement('option', { key: g, value: g }, g);
+            })
+          )
+        ),
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } },
+          React.createElement('div', {},
+            React.createElement('label', { style: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' } }, 'ปีการศึกษา'),
+            React.createElement('input', {
+              type: 'number', className: 'glass-input',
+              value: editForm.year,
+              onChange: function(e) { setEditForm(function(f) { return Object.assign({}, f, { year: parseInt(e.target.value) || f.year }); }); },
+              style: { width: '100%', padding: '10px 12px', fontSize: 14 }
+            })
+          ),
+          React.createElement('div', {},
+            React.createElement('label', { style: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' } }, 'ภาคเรียน'),
+            React.createElement('select', {
+              className: 'glass-input',
+              value: editForm.semester,
+              onChange: function(e) { setEditForm(function(f) { return Object.assign({}, f, { semester: parseInt(e.target.value) }); }); },
+              style: { width: '100%', padding: '10px 12px', fontSize: 14 }
+            },
+              [1, 2, 3].map(function(s) { return React.createElement('option', { key: s, value: s }, 'ภาคเรียนที่ ' + s); })
+            )
+          )
+        ),
+        React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 } },
+          React.createElement('button', { className: 'btn-secondary', onClick: function() { setEditEnrollment(null); setEditForm(null); } }, 'ยกเลิก'),
+          React.createElement('button', {
+            className: 'btn-primary',
+            onClick: function() {
+              var newEnrollments = student.enrollments.map(function(e, i) {
+                return i === editEnrollment.idx ? Object.assign({}, e, editForm) : e;
+              });
+              actions.updateStudent(student.id, { enrollments: newEnrollments });
+              setEditEnrollment(null); setEditForm(null);
+            }
+          }, '💾 บันทึก')
         )
       )
     )
@@ -586,6 +672,137 @@ window.StudentSimulatorView = function() {
             )
           )
         )
+  );
+};
+
+window.StudentLicenseView = function({ student, actions }) {
+  var exam = student.licenseExam || { status: 'not_taken', fileUrl: null, fileName: null };
+  var [status, setStatus] = React.useState(exam.status || 'not_taken');
+  var [uploading, setUploading] = React.useState(false);
+  var [uploadError, setUploadError] = React.useState('');
+  var [fileUrl, setFileUrl] = React.useState(exam.fileUrl || null);
+  var [fileName, setFileName] = React.useState(exam.fileName || null);
+  var fileInputRef = React.useRef(null);
+
+  var statusConfig = {
+    'not_taken': { label: 'ยังไม่ได้สอบ', color: '#6b7280', bg: 'rgba(156,163,175,0.15)', border: 'rgba(156,163,175,0.3)', icon: '⏳' },
+    'failed':    { label: 'สอบไม่ผ่าน',   color: '#dc2626', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)',   icon: '✗' },
+    'passed':    { label: 'สอบผ่านแล้ว',  color: '#15803d', bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.3)',   icon: '✓' }
+  };
+
+  var handleStatusChange = function(newStatus) {
+    setStatus(newStatus);
+    if (newStatus !== 'passed') {
+      actions.updateStudent(student.id, { licenseExam: { status: newStatus, fileUrl: null, fileName: null } });
+    } else if (fileUrl) {
+      actions.updateStudent(student.id, { licenseExam: { status: newStatus, fileUrl: fileUrl, fileName: fileName } });
+    } else {
+      actions.updateStudent(student.id, { licenseExam: { status: newStatus, fileUrl: null, fileName: null } });
+    }
+  };
+
+  var handleFileUpload = function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) { setUploadError('รองรับเฉพาะไฟล์ PDF, JPG, PNG เท่านั้น'); return; }
+    if (file.size > 5 * 1024 * 1024) { setUploadError('ขนาดไฟล์ต้องไม่เกิน 5MB'); return; }
+    setUploadError('');
+    setUploading(true);
+    var storage = actions.getStorage ? actions.getStorage() : null;
+    if (!storage) { setUploadError('ระบบ Storage ยังไม่พร้อม กรุณาลองใหม่'); setUploading(false); return; }
+    var ext = file.name.split('.').pop();
+    var ref = storage.ref('license-exams/' + student.id + '/proof.' + ext);
+    ref.put(file).then(function() {
+      return ref.getDownloadURL();
+    }).then(function(url) {
+      setFileUrl(url);
+      setFileName(file.name);
+      setUploading(false);
+      actions.updateStudent(student.id, { licenseExam: { status: status === 'passed' ? 'passed' : status, fileUrl: url, fileName: file.name } });
+    }).catch(function(err) {
+      setUploadError('อัปโหลดไม่สำเร็จ: ' + (err.message || 'ลองใหม่'));
+      setUploading(false);
+    });
+  };
+
+  var sc = statusConfig[status] || statusConfig['not_taken'];
+
+  return React.createElement('div', { className: 'fade-in', style: { padding: '24px', maxWidth: 640, margin: '0 auto' } },
+    React.createElement('div', { style: { marginBottom: 24 } },
+      React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '📜 ใบประกอบวิชาชีพครู'),
+      React.createElement('p', { style: { fontSize: 14, color: '#6b7280', marginTop: 4 } }, 'อัปเดตสถานะการสอบใบอนุญาตประกอบวิชาชีพครูของคุณ')
+    ),
+    React.createElement('div', { className: 'glass-card', style: { padding: '20px 24px', marginBottom: 20, border: '2px solid ' + sc.border, background: sc.bg } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
+        React.createElement('div', { style: { fontSize: 40 } }, sc.icon),
+        React.createElement('div', {},
+          React.createElement('div', { style: { fontSize: 13, color: '#6b7280', fontWeight: 600 } }, 'สถานะปัจจุบัน'),
+          React.createElement('div', { style: { fontSize: 22, fontWeight: 800, color: sc.color, marginTop: 2 } }, sc.label)
+        )
+      )
+    ),
+    React.createElement('div', { className: 'glass-card', style: { padding: '20px 24px', marginBottom: 20 } },
+      React.createElement('div', { style: { fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 14 } }, 'เปลี่ยนสถานะการสอบ'),
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+        [
+          { value: 'not_taken', label: 'ยังไม่ได้สอบ', icon: '⏳', desc: 'ยังไม่ได้เข้าสอบใบอนุญาตประกอบวิชาชีพครู' },
+          { value: 'failed',    label: 'สอบไม่ผ่าน',   icon: '✗',  desc: 'เข้าสอบแล้วแต่ยังไม่ผ่านเกณฑ์' },
+          { value: 'passed',    label: 'สอบผ่านแล้ว',  icon: '✓',  desc: 'สอบผ่านและได้รับใบอนุญาตแล้ว (กรุณาแนบหลักฐาน)' }
+        ].map(function(opt) {
+          var isSelected = status === opt.value;
+          var optSc = statusConfig[opt.value];
+          return React.createElement('div', {
+            key: opt.value,
+            onClick: function() { handleStatusChange(opt.value); },
+            style: {
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, cursor: 'pointer',
+              border: '2px solid ' + (isSelected ? optSc.border : 'rgba(0,0,0,0.07)'),
+              background: isSelected ? optSc.bg : 'rgba(255,255,255,0.4)', transition: 'all 0.2s'
+            }
+          },
+            React.createElement('div', { style: { fontSize: 22 } }, opt.icon),
+            React.createElement('div', { style: { flex: 1 } },
+              React.createElement('div', { style: { fontSize: 15, fontWeight: isSelected ? 700 : 500, color: isSelected ? optSc.color : '#374151' } }, opt.label),
+              React.createElement('div', { style: { fontSize: 12, color: '#9ca3af', marginTop: 2 } }, opt.desc)
+            ),
+            isSelected && React.createElement('div', { style: { width: 20, height: 20, borderRadius: '50%', background: optSc.color, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+              React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: 'white' } })
+            )
+          );
+        })
+      )
+    ),
+    status === 'passed' && React.createElement('div', { className: 'glass-card', style: { padding: '20px 24px' } },
+      React.createElement('div', { style: { fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 14 } }, '📎 แนบหลักฐานการสอบผ่าน'),
+      fileUrl
+        ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'rgba(34,197,94,0.08)', borderRadius: 10, marginBottom: 12 } },
+            React.createElement('div', { style: { fontSize: 24 } }, '✅'),
+            React.createElement('div', { style: { flex: 1 } },
+              React.createElement('div', { style: { fontSize: 14, fontWeight: 600, color: '#15803d' } }, 'อัปโหลดสำเร็จ'),
+              React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, fileName || 'ไฟล์หลักฐาน')
+            ),
+            React.createElement('a', { href: fileUrl, target: '_blank', rel: 'noopener noreferrer', className: 'btn-ghost', style: { fontSize: 13 } }, '👁 ดู')
+          )
+        : null,
+      React.createElement('div', {
+        onClick: function() { if (fileInputRef.current) fileInputRef.current.click(); },
+        style: { border: '2px dashed rgba(0,0,0,0.15)', borderRadius: 12, padding: '24px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: 'rgba(255,255,255,0.3)' }
+      },
+        uploading
+          ? React.createElement('div', { style: { color: '#6b7280', fontSize: 14 } }, '⏳ กำลังอัปโหลด...')
+          : React.createElement('div', {},
+              React.createElement('div', { style: { fontSize: 28, marginBottom: 8 } }, '📤'),
+              React.createElement('div', { style: { fontSize: 14, fontWeight: 600, color: '#374151' } }, fileUrl ? 'เปลี่ยนไฟล์' : 'คลิกเพื่ออัปโหลดไฟล์'),
+              React.createElement('div', { style: { fontSize: 12, color: '#9ca3af', marginTop: 4 } }, 'รองรับ PDF, JPG, PNG ขนาดไม่เกิน 5MB')
+            )
+      ),
+      React.createElement('input', {
+        ref: fileInputRef, type: 'file', accept: '.pdf,image/*',
+        style: { display: 'none' }, onChange: handleFileUpload
+      }),
+      uploadError && React.createElement('div', { style: { marginTop: 10, color: '#dc2626', fontSize: 13 } }, '⚠ ' + uploadError)
+    )
   );
 };
 

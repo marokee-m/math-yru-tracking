@@ -60,67 +60,61 @@ window.AdvisorDashboardView = function() {
       React.createElement('p', { style: { fontSize: 14, color: '#6b7280' } }, advisor.name + ' | ' + advisor.department)
     ),
 
-    // Stat cards
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, marginBottom: 24 } },
-      [
-        { label: 'นักศึกษาทั้งหมด', value: myStudents.length, cls: 'stat-pink', color: '#be185d', icon: '🎓' },
-        { label: 'เดินตามแผน', value: onTrackCount, cls: 'stat-green', color: '#15803d', icon: '✅' },
-        { label: 'มีความเสี่ยง', value: atRiskCount, cls: 'stat-orange', color: '#c2410c', icon: '⚠️' },
-        { label: 'วิชาติด E/F รวม', value: totalEFCourses, cls: 'stat-red', color: '#dc2626', icon: '📌' },
-        { label: 'GPAX เฉลี่ย', value: avgGPAX, cls: 'stat-blue', color: '#1d4ed8', icon: '📈' },
-      ].map(s =>
-        React.createElement('div', { key: s.label, className: 'glass-card ' + s.cls, style: { padding: '16px 20px' } },
-          React.createElement('div', { style: { fontSize: 24, marginBottom: 4 } }, s.icon),
-          React.createElement('div', { style: { fontSize: 26, fontWeight: 800, color: s.color } }, s.value),
-          React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, s.label)
-        )
+    // Stat cards — 4 columns, elegant style
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 } },
+      React.createElement('div', { className: 'glass-card', style: { padding: '20px 24px', borderLeft: '4px solid #ec4899', display: 'flex', flexDirection: 'column', gap: 4 } },
+        React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'นักศึกษาทั้งหมด'),
+        React.createElement('div', { style: { fontSize: 36, fontWeight: 900, color: '#1f2937', lineHeight: 1.1 } }, myStudents.length),
+        React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'คน')
+      ),
+      React.createElement('div', { className: 'glass-card', style: { padding: '20px 24px', borderLeft: '4px solid #22c55e', display: 'flex', flexDirection: 'column', gap: 4 } },
+        React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'เดินตามแผน'),
+        React.createElement('div', { style: { fontSize: 36, fontWeight: 900, color: '#1f2937', lineHeight: 1.1 } }, onTrackCount),
+        React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'คน')
+      ),
+      React.createElement('div', { className: 'glass-card', style: { padding: '20px 24px', borderLeft: '4px solid #f59e0b', display: 'flex', flexDirection: 'column', gap: 4 } },
+        React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'ต้องระวัง'),
+        React.createElement('div', { style: { fontSize: 36, fontWeight: 900, color: '#1f2937', lineHeight: 1.1 } }, atRiskCount),
+        React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'คน')
+      ),
+      React.createElement('div', { className: 'glass-card', style: { padding: '20px 24px', borderLeft: '4px solid #a855f7', display: 'flex', flexDirection: 'column', gap: 4 } },
+        React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'GPAX เฉลี่ย'),
+        React.createElement('div', { style: { fontSize: 36, fontWeight: 900, color: '#1f2937', lineHeight: 1.1 } }, avgGPAX),
+        React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'คะแนน')
       )
     ),
 
-    // Two columns: GPAX dist + Year dist
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 } },
-      // GPAX distribution bar chart
-      React.createElement('div', { className: 'glass-card', style: { padding: 20 } },
-        React.createElement('h3', { style: { fontWeight: 700, fontSize: 16, marginBottom: 16, color: '#1f2937' } }, '📊 การกระจาย GPAX'),
-        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-          gpaxDist.map(item =>
-            React.createElement('div', { key: item.label },
-              React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 } },
-                React.createElement('span', { style: { color: '#374151' } }, item.label),
-                React.createElement('span', { style: { fontWeight: 700, color: item.color } }, item.count + ' คน')
+    // GPAX distribution — full width horizontal bar chart
+    React.createElement('div', { className: 'glass-card', style: { padding: '20px 24px', marginBottom: 24 } },
+      React.createElement('div', { style: { fontSize: 15, fontWeight: 700, color: '#1f2937', marginBottom: 16 } }, '📊 การกระจาย GPAX'),
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+        (() => {
+          var gpaxRanges = [
+            { label: '3.50 – 4.00', min: 3.5, max: 4.01, color: '#22c55e' },
+            { label: '3.00 – 3.49', min: 3.0, max: 3.5, color: '#84cc16' },
+            { label: '2.50 – 2.99', min: 2.5, max: 3.0, color: '#eab308' },
+            { label: '2.00 – 2.49', min: 2.0, max: 2.5, color: '#f97316' },
+            { label: 'ต่ำกว่า 2.00', min: 0, max: 2.0, color: '#ef4444' }
+          ];
+          var gpaxList = studentStats.map(function(s) { return s.gpax || 0; });
+          var maxCount = 1;
+          var rangeCounts = gpaxRanges.map(function(r) {
+            var count = gpaxList.filter(function(g) { return g >= r.min && g < r.max; }).length;
+            if (count > maxCount) maxCount = count;
+            return count;
+          });
+          return gpaxRanges.map(function(r, i) {
+            var count = rangeCounts[i];
+            var pct = maxCount > 0 ? (count / maxCount * 100) : 0;
+            return React.createElement('div', { key: r.label, style: { display: 'flex', alignItems: 'center', gap: 10 } },
+              React.createElement('div', { style: { width: 90, fontSize: 13, color: '#374151', fontWeight: 500, flexShrink: 0 } }, r.label),
+              React.createElement('div', { style: { flex: 1, height: 24, background: 'rgba(0,0,0,0.05)', borderRadius: 6, overflow: 'hidden' } },
+                React.createElement('div', { style: { width: pct + '%', height: '100%', background: r.color, borderRadius: 6, transition: 'width 0.6s ease', minWidth: count > 0 ? 4 : 0 } })
               ),
-              React.createElement('div', { className: 'progress-bar-bg', style: { height: 8 } },
-                React.createElement('div', {
-                  className: 'progress-bar-fill',
-                  style: { width: myStudents.length > 0 ? (item.count / myStudents.length * 100) + '%' : '0%', background: item.color, height: 8 }
-                })
-              )
-            )
-          )
-        )
-      ),
-
-      // Year distribution
-      React.createElement('div', { className: 'glass-card', style: { padding: 20 } },
-        React.createElement('h3', { style: { fontWeight: 700, fontSize: 16, marginBottom: 16, color: '#1f2937' } }, '📅 นักศึกษาแต่ละชั้นปี'),
-        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-          yearDist.map(item => {
-            const pct = myStudents.length > 0 ? (item.count / myStudents.length * 100) : 0;
-            return React.createElement('div', { key: item.year, style: { display: 'flex', alignItems: 'center', gap: 12 } },
-              React.createElement('span', { style: { fontSize: 13, fontWeight: 700, color: '#374151', minWidth: 50 } }, 'ปีที่ ' + item.year),
-              React.createElement('div', { style: { flex: 1 } },
-                React.createElement('div', { className: 'progress-bar-bg', style: { height: 20, borderRadius: 6 } },
-                  React.createElement('div', {
-                    className: 'progress-bar-fill',
-                    style: { width: pct + '%', background: 'linear-gradient(90deg,#e91e8c,#f06292)', height: 20, borderRadius: 6, display: 'flex', alignItems: 'center', paddingLeft: 8 }
-                  },
-                    item.count > 0 && React.createElement('span', { style: { color: 'white', fontSize: 12, fontWeight: 700 } }, item.count + ' คน')
-                  )
-                )
-              )
+              React.createElement('div', { style: { width: 28, fontSize: 14, fontWeight: 700, color: '#374151', textAlign: 'right' } }, count)
             );
-          })
-        )
+          });
+        })()
       )
     ),
 
@@ -665,6 +659,88 @@ window.AdvisorExportView = function() {
                     )
             )
           )
+        )
+      )
+    )
+  );
+};
+
+// ---- License View ----
+window.AdvisorLicenseView = function({ students, courses, advisorId }) {
+  var myStudents = students.filter(function(s) { return s.advisorId === advisorId; });
+
+  var statusLabel = { 'not_taken': 'ยังไม่สอบ', 'failed': 'สอบไม่ผ่าน', 'passed': 'สอบผ่าน' };
+  var statusColor = {
+    'not_taken': { bg: 'rgba(156,163,175,0.15)', text: '#6b7280', border: 'rgba(156,163,175,0.3)' },
+    'failed':    { bg: 'rgba(239,68,68,0.12)',   text: '#dc2626', border: 'rgba(239,68,68,0.3)' },
+    'passed':    { bg: 'rgba(34,197,94,0.12)',   text: '#15803d', border: 'rgba(34,197,94,0.3)' }
+  };
+  var statusIcon = { 'not_taken': '⏳', 'failed': '✗', 'passed': '✓' };
+
+  var summary = { not_taken: 0, failed: 0, passed: 0 };
+  myStudents.forEach(function(s) {
+    var st = (s.licenseExam && s.licenseExam.status) || 'not_taken';
+    summary[st] = (summary[st] || 0) + 1;
+  });
+
+  return React.createElement('div', { className: 'fade-in', style: { padding: '24px', maxWidth: 900, margin: '0 auto' } },
+    // Header
+    React.createElement('div', { style: { marginBottom: 24 } },
+      React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '📜 ใบประกอบวิชาชีพครู'),
+      React.createElement('p', { style: { fontSize: 14, color: '#6b7280', marginTop: 4 } }, 'ติดตามสถานะสอบใบประกอบวิชาชีพครูของนักศึกษาในที่ปรึกษา')
+    ),
+    // Summary stats
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 } },
+      React.createElement('div', { className: 'glass-card', style: { padding: '16px 20px', borderLeft: '4px solid #6b7280' } },
+        React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'ยังไม่สอบ'),
+        React.createElement('div', { style: { fontSize: 32, fontWeight: 900, color: '#1f2937' } }, summary.not_taken),
+        React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'คน')
+      ),
+      React.createElement('div', { className: 'glass-card', style: { padding: '16px 20px', borderLeft: '4px solid #ef4444' } },
+        React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'สอบไม่ผ่าน'),
+        React.createElement('div', { style: { fontSize: 32, fontWeight: 900, color: '#1f2937' } }, summary.failed),
+        React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'คน')
+      ),
+      React.createElement('div', { className: 'glass-card', style: { padding: '16px 20px', borderLeft: '4px solid #22c55e' } },
+        React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'สอบผ่าน'),
+        React.createElement('div', { style: { fontSize: 32, fontWeight: 900, color: '#1f2937' } }, summary.passed),
+        React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'คน')
+      )
+    ),
+    // Student list table
+    React.createElement('div', { className: 'glass-card', style: { overflow: 'hidden' } },
+      React.createElement('table', { className: 'glass-table' },
+        React.createElement('thead', {},
+          React.createElement('tr', {},
+            React.createElement('th', {}, 'รหัสนักศึกษา'),
+            React.createElement('th', {}, 'ชื่อ-นามสกุล'),
+            React.createElement('th', {}, 'GPAX'),
+            React.createElement('th', {}, 'สถานะใบประกอบวิชาชีพ'),
+            React.createElement('th', {}, 'เอกสาร')
+          )
+        ),
+        React.createElement('tbody', {},
+          myStudents.map(function(s) {
+            var exam = s.licenseExam || { status: 'not_taken' };
+            var st = exam.status || 'not_taken';
+            var sc = statusColor[st] || statusColor['not_taken'];
+            var gpax = window.Utils.calcGPAX(s.enrollments || [], courses);
+            return React.createElement('tr', { key: s.id },
+              React.createElement('td', {}, React.createElement('code', { style: { fontSize: 13, color: '#6b7280' } }, s.studentId)),
+              React.createElement('td', { style: { fontWeight: 600 } }, s.name),
+              React.createElement('td', {}, React.createElement('span', { style: { fontWeight: 700, color: parseFloat(gpax) >= 3 ? '#15803d' : parseFloat(gpax) >= 2 ? '#d97706' : '#dc2626' } }, gpax)),
+              React.createElement('td', {},
+                React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 600, background: sc.bg, color: sc.text, border: '1px solid ' + sc.border } },
+                  statusIcon[st], statusLabel[st] || 'ยังไม่สอบ'
+                )
+              ),
+              React.createElement('td', {},
+                exam.fileUrl
+                  ? React.createElement('a', { href: exam.fileUrl, target: '_blank', rel: 'noopener noreferrer', style: { fontSize: 13, color: '#be185d', textDecoration: 'underline', fontWeight: 600 } }, '📎 ดูเอกสาร')
+                  : React.createElement('span', { style: { fontSize: 13, color: '#9ca3af' } }, '—')
+              )
+            );
+          })
         )
       )
     )
