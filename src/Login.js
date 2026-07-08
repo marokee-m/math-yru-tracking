@@ -327,7 +327,12 @@ window.AppProvider = function({ children }) {
       var st = s.students.find(function(x) { return x.id === id; });
       if (!st) return s;
       var updated = updater(st);
-      if (sbRef.current) sbRef.current.from('students').update(updated).eq('id', id);
+      // NOTE: ต้องเรียก .then() เพื่อให้ supabase-js v2 ส่ง request จริง (query เป็น lazy thenable)
+      if (sbRef.current) {
+        sbRef.current.from('students').update(updated).eq('id', id).then(function(res) {
+          if (res && res.error) console.error('❌ บันทึกข้อมูลนักศึกษาไม่สำเร็จ:', res.error.message);
+        });
+      }
       return Object.assign({}, s, { students: s.students.map(function(x) { return x.id === id ? updated : x; }) });
     });
   }
@@ -397,7 +402,13 @@ window.AppProvider = function({ children }) {
           return st.id === studentId ? Object.assign({}, st, data) : st;
         })});
       });
-      if (sbRef.current) return sbRef.current.from('students').update(data).eq('id', studentId);
+      // เรียก .then() ภายในเพื่อให้ request ยิงจริงแม้ผู้เรียกจะไม่ await (supabase-js v2 เป็น lazy thenable)
+      if (sbRef.current) {
+        return sbRef.current.from('students').update(data).eq('id', studentId).then(function(res) {
+          if (res && res.error) console.error('❌ บันทึกข้อมูลนักศึกษาไม่สำเร็จ:', res.error.message);
+          return res;
+        });
+      }
       return Promise.resolve();
     },
     deleteStudent: function(id) {
@@ -407,7 +418,12 @@ window.AppProvider = function({ children }) {
     getSupabase: function() { return sbRef.current; },
 
     updateCurriculumMeta: function(meta) {
-      if (sbRef.current) sbRef.current.from('settings').upsert({ id: 'curriculum', data: meta });
+      // ต้องเรียก .then() เพื่อให้ supabase-js v2 ส่ง request จริง (query เป็น lazy thenable)
+      if (sbRef.current) {
+        sbRef.current.from('settings').upsert({ id: 'curriculum', data: meta }).then(function(res) {
+          if (res && res.error) console.error('❌ บันทึกหลักสูตรไม่สำเร็จ:', res.error.message);
+        });
+      }
       setState(function(s) { return Object.assign({}, s, { curriculumMeta: meta }); });
     },
 
@@ -415,21 +431,33 @@ window.AppProvider = function({ children }) {
     addCurriculum: function(curriculum) {
       setState(function(s) {
         var newList = (s.curricula || []).concat([curriculum]);
-        if (sbRef.current) sbRef.current.from('settings').upsert({ id: 'curricula_list', data: newList });
+        if (sbRef.current) {
+          sbRef.current.from('settings').upsert({ id: 'curricula_list', data: newList }).then(function(res) {
+            if (res && res.error) console.error('❌ เพิ่มหลักสูตรไม่สำเร็จ:', res.error.message);
+          });
+        }
         return Object.assign({}, s, { curricula: newList });
       });
     },
     updateCurriculum: function(id, updates) {
       setState(function(s) {
         var newList = (s.curricula || []).map(function(c) { return c.id === id ? Object.assign({}, c, updates) : c; });
-        if (sbRef.current) sbRef.current.from('settings').upsert({ id: 'curricula_list', data: newList });
+        if (sbRef.current) {
+          sbRef.current.from('settings').upsert({ id: 'curricula_list', data: newList }).then(function(res) {
+            if (res && res.error) console.error('❌ แก้ไขหลักสูตรไม่สำเร็จ:', res.error.message);
+          });
+        }
         return Object.assign({}, s, { curricula: newList });
       });
     },
     deleteCurriculum: function(id) {
       setState(function(s) {
         var newList = (s.curricula || []).filter(function(c) { return c.id !== id; });
-        if (sbRef.current) sbRef.current.from('settings').upsert({ id: 'curricula_list', data: newList });
+        if (sbRef.current) {
+          sbRef.current.from('settings').upsert({ id: 'curricula_list', data: newList }).then(function(res) {
+            if (res && res.error) console.error('❌ ลบหลักสูตรไม่สำเร็จ:', res.error.message);
+          });
+        }
         return Object.assign({}, s, { curricula: newList });
       });
     },
