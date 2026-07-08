@@ -444,13 +444,18 @@ window.StudentEquipmentCatalog = function() {
 // ---- Student: My Borrow Requests ----
 window.StudentMyBorrowsView = function() {
   var ctx = window.useApp();
-  var state = ctx.state;
+  var state = ctx.state; var actions = ctx.actions;
   var studentId = state.currentUserId;
   var allRequests = state.borrowRequests || [];
   var equipment = state.equipment || [];
   var myRequests = allRequests.filter(function(r) { return r.studentId === studentId; });
 
   var [borrowSearch, setBorrowSearch] = React.useState('');
+  var [editItem, setEditItem] = React.useState(null);
+  var [editForm, setEditForm] = React.useState({ quantity: 1, borrowDate: '', returnDate: '', reason: '' });
+  var [deleteTarget, setDeleteTarget] = React.useState(null);
+  var [submitting, setSubmitting] = React.useState(false);
+  var [editMsg, setEditMsg] = React.useState('');
 
   var statusMap = {
     pending:  { label: 'รออนุมัติ',       color: '#d97706', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', icon: '🟡' },
@@ -459,9 +464,54 @@ window.StudentMyBorrowsView = function() {
     rejected: { label: 'ปฏิเสธ',           color: '#dc2626', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.35)',   icon: '❌' }
   };
 
+  var openEdit = function(req) {
+    setEditItem(req);
+    setEditForm({ quantity: req.quantity || 1, borrowDate: req.borrowDate || '', returnDate: req.returnDate || '', reason: req.reason || '' });
+    setEditMsg('');
+  };
+
+  // จำนวนสูงสุดที่แก้ได้ = คงเหลือของอุปกรณ์ตอนนี้ (คำขอที่รออนุมัติยังไม่ได้ตัดสต็อก)
+  var editMaxQty = function() {
+    if (!editItem) return 1;
+    var eq = equipment.find(function(e) { return e.id === editItem.equipmentId; });
+    return eq ? (eq.availableQuantity || 0) : (editItem.quantity || 1);
+  };
+
+  var handleSaveEdit = function() {
+    if (!editItem) return;
+    if (!editForm.borrowDate || !editForm.returnDate) { setEditMsg('⚠ กรุณาระบุวันที่ยืมและวันที่คืน'); return; }
+    if (editForm.returnDate < editForm.borrowDate) { setEditMsg('⚠ วันคืนต้องหลังวันยืม'); return; }
+    if (!editForm.reason.trim()) { setEditMsg('⚠ กรุณาระบุเหตุผลในการยืม'); return; }
+    var qty = parseInt(editForm.quantity) || 1;
+    var maxQty = editMaxQty();
+    if (qty < 1 || qty > maxQty) { setEditMsg('⚠ จำนวนต้องอยู่ระหว่าง 1 ถึง ' + maxQty); return; }
+    setSubmitting(true);
+    actions.updateBorrowRequest(editItem.id, {
+      quantity: qty, borrowDate: editForm.borrowDate, returnDate: editForm.returnDate, reason: editForm.reason.trim()
+    }).then(function() {
+      setSubmitting(false); setEditItem(null);
+    }).catch(function(e) {
+      setSubmitting(false); setEditMsg('⚠ บันทึกไม่สำเร็จ: ' + (e && e.message ? e.message : 'กรุณาลองใหม่'));
+    });
+  };
+
+  var confirmDelete = function() {
+    if (!deleteTarget) return;
+    var id = deleteTarget.id;
+    setDeleteTarget(null);
+    actions.deleteBorrowRequest(id).catch(function(e) {
+      alert('⚠ ลบไม่สำเร็จ: ' + (e && e.message ? e.message : 'กรุณาลองใหม่'));
+    });
+  };
+
+  var setEF = function(key, val) { setEditForm(function(f) { return Object.assign({}, f, { [key]: val }); }); };
+  var labelStyle = { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4, display: 'block' };
+  var inputStyle = { width: '100%', padding: '10px 12px', fontSize: 14, boxSizing: 'border-box' };
+
   var filteredBorrows = borrowSearch ? myRequests.filter(function(r) { return (r.equipmentName||'').toLowerCase().includes(borrowSearch.toLowerCase()); }) : myRequests;
 
-  return React.createElement('div', { className: 'fade-in', style: { padding: '8px 4px', maxWidth: 900, margin: '0 auto' } },
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', { className: 'fade-in', style: { padding: '8px 4px', maxWidth: 900, margin: '0 auto' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
       React.createElement('div', {},
         React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '📋 ประวัติการยืมของฉัน'),
@@ -476,23 +526,76 @@ window.StudentMyBorrowsView = function() {
             var sm = statusMap[req.status] || statusMap.pending;
             var eqLoc = (equipment.find(function(e) { return e.id === req.equipmentId; }) || {}).location;
             var isOverdue = req.status === 'approved' && req.returnDate && req.returnDate < new Date().toISOString().split('T')[0];
+            var canModify = req.status === 'pending';
             return React.createElement('div', { key: req.id, className: 'glass-card', style: { padding: '16px 20px', borderLeft: '4px solid ' + sm.color + (isOverdue ? '' : ''), background: isOverdue ? 'rgba(239,68,68,0.04)' : undefined } },
-              React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 } },
-                React.createElement('div', { style: { flex: 1 } },
+              React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' } },
+                React.createElement('div', { style: { flex: '1 1 200px', minWidth: 0 } },
                   React.createElement('div', { style: { fontSize: 16, fontWeight: 700, marginBottom: 4 } }, req.equipmentName),
                   React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, 'จำนวน ' + req.quantity + ' ชิ้น • ยืม ' + req.borrowDate + ' → คืน ' + req.returnDate),
                   eqLoc && React.createElement('div', { style: { fontSize: 13, color: '#6b7280', marginTop: 2 } }, '📍 สถานที่เก็บ: ' + eqLoc),
                   React.createElement('div', { style: { fontSize: 13, color: '#6b7280', marginTop: 2 } }, 'เหตุผล: ' + req.reason),
                   isOverdue && React.createElement('div', { style: { marginTop: 6, fontSize: 12, fontWeight: 700, color: '#dc2626' } }, '⚠️ เกินกำหนดคืน!')
                 ),
-                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 } },
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 } },
                   React.createElement('span', { style: { padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: sm.bg, color: sm.color, border: '1px solid ' + sm.border, whiteSpace: 'nowrap' } }, sm.icon + ' ' + sm.label),
-                  React.createElement('span', { style: { fontSize: 11, color: '#9ca3af' } }, req.createdAt ? req.createdAt.substring(0, 10) : '')
+                  React.createElement('span', { style: { fontSize: 11, color: '#9ca3af' } }, req.createdAt ? req.createdAt.substring(0, 10) : ''),
+                  canModify && React.createElement('div', { style: { display: 'flex', gap: 6, marginTop: 2 } },
+                    React.createElement('button', { className: 'btn-ghost', style: { padding: '5px 10px', fontSize: 12 }, onClick: function() { openEdit(req); } }, '✏️ แก้ไข'),
+                    React.createElement('button', { className: 'btn-danger', style: { padding: '5px 10px', fontSize: 12 }, onClick: function() { setDeleteTarget(req); } }, '🗑️ ลบ')
+                  )
                 )
               )
             );
           })
         )
+    ),
+    // Edit modal (เฉพาะคำขอที่รออนุมัติ)
+    React.createElement(window.Modal, {
+      open: !!editItem,
+      onClose: function() { setEditItem(null); },
+      title: '✏️ แก้ไขคำขอยืม',
+      width: '480px'
+    },
+      editItem && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+        React.createElement('div', { style: { display: 'flex', gap: 12, padding: '12px 16px', background: 'rgba(219,39,119,0.06)', borderRadius: 10 } },
+          React.createElement('div', { style: { fontSize: 28 } }, '📦'),
+          React.createElement('div', {},
+            React.createElement('div', { style: { fontSize: 15, fontWeight: 700 } }, editItem.equipmentName),
+            React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'ยืมได้สูงสุด ' + editMaxQty() + ' ชิ้น')
+          )
+        ),
+        React.createElement('div', {},
+          React.createElement('label', { style: labelStyle }, 'จำนวนที่ต้องการยืม'),
+          React.createElement('input', { type: 'number', min: 1, max: editMaxQty(), className: 'glass-input', style: inputStyle, value: editForm.quantity, onChange: function(e) { setEF('quantity', e.target.value); } })
+        ),
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } },
+          React.createElement('div', {},
+            React.createElement('label', { style: labelStyle }, 'วันที่ยืม'),
+            React.createElement('input', { type: 'date', className: 'glass-input', style: inputStyle, value: editForm.borrowDate, onChange: function(e) { setEF('borrowDate', e.target.value); } })
+          ),
+          React.createElement('div', {},
+            React.createElement('label', { style: labelStyle }, 'วันที่คาดว่าจะคืน'),
+            React.createElement('input', { type: 'date', className: 'glass-input', style: inputStyle, value: editForm.returnDate, onChange: function(e) { setEF('returnDate', e.target.value); } })
+          )
+        ),
+        React.createElement('div', {},
+          React.createElement('label', { style: labelStyle }, 'เหตุผลในการยืม *'),
+          React.createElement('textarea', { className: 'glass-input', style: Object.assign({}, inputStyle, { minHeight: 72, resize: 'vertical' }), value: editForm.reason, onChange: function(e) { setEF('reason', e.target.value); } })
+        ),
+        editMsg && React.createElement('div', { style: { fontSize: 13, color: '#dc2626' } }, editMsg),
+        React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
+          React.createElement('button', { className: 'btn-secondary', onClick: function() { setEditItem(null); } }, 'ยกเลิก'),
+          React.createElement('button', { className: 'btn-primary', disabled: submitting, onClick: handleSaveEdit }, submitting ? '⏳ กำลังบันทึก...' : '💾 บันทึก')
+        )
+      )
+    ),
+    React.createElement(window.ConfirmDialog, {
+      open: !!deleteTarget,
+      title: 'ลบคำขอยืม',
+      message: deleteTarget ? 'ต้องการลบคำขอยืม "' + deleteTarget.equipmentName + '" ใช่หรือไม่?' : '',
+      onConfirm: confirmDelete,
+      onCancel: function() { setDeleteTarget(null); }
+    })
   );
 };
 

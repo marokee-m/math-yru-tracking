@@ -502,6 +502,16 @@ window.AppProvider = function({ children }) {
         return reloadBorrows();
       });
     },
+    deleteBorrowRequest: function(id) {
+      if (!sbRef.current) return Promise.resolve();
+      setState(function(s) {
+        return Object.assign({}, s, { borrowRequests: s.borrowRequests.filter(function(r) { return r.id !== id; }) });
+      });
+      return sbRef.current.from('borrow_requests').delete().eq('id', id).then(function(res) {
+        if (res && res.error) { console.error('❌ ลบคำขอยืมไม่สำเร็จ:', res.error.message); throw new Error(res.error.message); }
+        return reloadBorrows();
+      });
+    },
 
     // Advisors
     addAdvisor: function(advisor) {
