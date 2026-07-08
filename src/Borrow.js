@@ -10,7 +10,7 @@ window.AdminEquipmentView = function() {
 
   var [showModal, setShowModal] = React.useState(false);
   var [editItem, setEditItem] = React.useState(null);
-  var [form, setForm] = React.useState({ code: '', name: '', totalQuantity: 1, availableQuantity: 1, imageUrl: '', description: '' });
+  var [form, setForm] = React.useState({ code: '', name: '', totalQuantity: 1, availableQuantity: 1, imageUrl: '', description: '', location: '' });
   var [imagePreview, setImagePreview] = React.useState(null);
   var [imageFile, setImageFile] = React.useState(null);
   var [uploading, setUploading] = React.useState(false);
@@ -32,13 +32,13 @@ window.AdminEquipmentView = function() {
 
   var openAdd = function() {
     setEditItem(null);
-    setForm({ code: genNextCode(), name: '', totalQuantity: 1, availableQuantity: 1, imageUrl: '', description: '', borrowType: 'borrow' });
+    setForm({ code: genNextCode(), name: '', totalQuantity: 1, availableQuantity: 1, imageUrl: '', description: '', borrowType: 'borrow', location: '' });
     setImagePreview(null); setImageFile(null); setUploadProgress(0); setMsg('');
     setShowModal(true);
   };
   var openEdit = function(item) {
     setEditItem(item);
-    setForm({ code: item.code || '', name: item.name || '', totalQuantity: item.totalQuantity || 1, availableQuantity: item.availableQuantity !== undefined ? item.availableQuantity : item.totalQuantity, imageUrl: item.imageUrl || '', description: item.description || '', borrowType: item.borrowType || 'borrow' });
+    setForm({ code: item.code || '', name: item.name || '', totalQuantity: item.totalQuantity || 1, availableQuantity: item.availableQuantity !== undefined ? item.availableQuantity : item.totalQuantity, imageUrl: item.imageUrl || '', description: item.description || '', borrowType: item.borrowType || 'borrow', location: item.location || '' });
     setImagePreview(item.imageUrl || null); setImageFile(null); setUploadProgress(0); setMsg('');
     setShowModal(true);
   };
@@ -125,12 +125,13 @@ window.AdminEquipmentView = function() {
               React.createElement('th', {}, 'ประเภท'),
               React.createElement('th', { style: { textAlign: 'center' } }, 'ทั้งหมด'),
               React.createElement('th', { style: { textAlign: 'center' } }, 'คงเหลือ'),
+              React.createElement('th', {}, 'สถานที่เก็บ'),
               React.createElement('th', { style: { width: 120 } }, '')
             )
           ),
           React.createElement('tbody', {},
             filteredEquipment.length === 0
-              ? React.createElement('tr', {}, React.createElement('td', { colSpan: 7, style: { textAlign: 'center', color: '#9ca3af', padding: '32px' } }, eqSearch ? 'ไม่พบอุปกรณ์ที่ค้นหา' : 'ยังไม่มีอุปกรณ์'))
+              ? React.createElement('tr', {}, React.createElement('td', { colSpan: 8, style: { textAlign: 'center', color: '#9ca3af', padding: '32px' } }, eqSearch ? 'ไม่พบอุปกรณ์ที่ค้นหา' : 'ยังไม่มีอุปกรณ์'))
               : filteredEquipment.map(function(item) {
                 var avail = item.availableQuantity || 0;
                 var total = item.totalQuantity || 1;
@@ -154,6 +155,9 @@ window.AdminEquipmentView = function() {
                     React.createElement('div', { style: { width: 60, height: 4, background: 'rgba(0,0,0,0.08)', borderRadius: 99, margin: '4px auto 0' } },
                       React.createElement('div', { style: { width: pct + '%', height: '100%', borderRadius: 99, background: avail === 0 ? '#ef4444' : avail < total * 0.3 ? '#f59e0b' : '#22c55e' } })
                     )
+                  ),
+                  React.createElement('td', { style: { fontSize: 13, color: item.location ? '#374151' : '#9ca3af' } },
+                    item.location ? React.createElement('span', {}, '📍 ' + item.location) : '—'
                   ),
                   React.createElement('td', {},
                     React.createElement('div', { style: { display: 'flex', gap: 6 } },
@@ -246,6 +250,11 @@ window.AdminEquipmentView = function() {
             React.createElement('label', { style: labelStyle }, 'จำนวนพร้อมให้ยืม'),
             React.createElement('input', { type: 'number', min: 0, className: 'glass-input', style: inputStyle, value: form.availableQuantity, onChange: function(e) { setF('availableQuantity', e.target.value); } })
           )
+        ),
+        // สถานที่เก็บ
+        React.createElement('div', {},
+          React.createElement('label', { style: labelStyle }, 'สถานที่เก็บ'),
+          React.createElement('input', { className: 'glass-input', style: inputStyle, placeholder: 'เช่น ห้องพัสดุสาขาคณิตศาสตร์ ตู้ A1', value: form.location, onChange: function(e) { setF('location', e.target.value); } })
         ),
         // Description
         React.createElement('div', {},
@@ -367,6 +376,7 @@ window.StudentEquipmentCatalog = function() {
                 React.createElement('div', { style: { padding: '14px 16px' } },
                   React.createElement('div', { style: { fontSize: 11, color: '#9ca3af', fontFamily: 'monospace' } }, item.code || ''),
                   React.createElement('div', { style: { fontSize: 15, fontWeight: 700, color: '#1f2937', marginTop: 4, marginBottom: 8 } }, item.name),
+                  item.location && React.createElement('div', { style: { fontSize: 12, color: '#6b7280', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 } }, '📍 ' + item.location),
                   // Availability
                   React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
                     React.createElement('span', { style: { fontSize: 12, color: '#6b7280' } }, 'คงเหลือ'),
@@ -396,7 +406,8 @@ window.StudentEquipmentCatalog = function() {
           React.createElement('div', { style: { fontSize: 28 } }, '📦'),
           React.createElement('div', {},
             React.createElement('div', { style: { fontSize: 15, fontWeight: 700 } }, borrowItem.name),
-            React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'คงเหลือ ' + (borrowItem.availableQuantity || 0) + ' ชิ้น')
+            React.createElement('div', { style: { fontSize: 12, color: '#6b7280' } }, 'คงเหลือ ' + (borrowItem.availableQuantity || 0) + ' ชิ้น'),
+            borrowItem.location && React.createElement('div', { style: { fontSize: 12, color: '#6b7280', marginTop: 2 } }, '📍 สถานที่เก็บ: ' + borrowItem.location)
           )
         ),
         // Quantity
@@ -436,6 +447,7 @@ window.StudentMyBorrowsView = function() {
   var state = ctx.state;
   var studentId = state.currentUserId;
   var allRequests = state.borrowRequests || [];
+  var equipment = state.equipment || [];
   var myRequests = allRequests.filter(function(r) { return r.studentId === studentId; });
 
   var [borrowSearch, setBorrowSearch] = React.useState('');
@@ -462,12 +474,14 @@ window.StudentMyBorrowsView = function() {
       : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
           filteredBorrows.map(function(req) {
             var sm = statusMap[req.status] || statusMap.pending;
+            var eqLoc = (equipment.find(function(e) { return e.id === req.equipmentId; }) || {}).location;
             var isOverdue = req.status === 'approved' && req.returnDate && req.returnDate < new Date().toISOString().split('T')[0];
             return React.createElement('div', { key: req.id, className: 'glass-card', style: { padding: '16px 20px', borderLeft: '4px solid ' + sm.color + (isOverdue ? '' : ''), background: isOverdue ? 'rgba(239,68,68,0.04)' : undefined } },
               React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 } },
                 React.createElement('div', { style: { flex: 1 } },
                   React.createElement('div', { style: { fontSize: 16, fontWeight: 700, marginBottom: 4 } }, req.equipmentName),
                   React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, 'จำนวน ' + req.quantity + ' ชิ้น • ยืม ' + req.borrowDate + ' → คืน ' + req.returnDate),
+                  eqLoc && React.createElement('div', { style: { fontSize: 13, color: '#6b7280', marginTop: 2 } }, '📍 สถานที่เก็บ: ' + eqLoc),
                   React.createElement('div', { style: { fontSize: 13, color: '#6b7280', marginTop: 2 } }, 'เหตุผล: ' + req.reason),
                   isOverdue && React.createElement('div', { style: { marginTop: 6, fontSize: 12, fontWeight: 700, color: '#dc2626' } }, '⚠️ เกินกำหนดคืน!')
                 ),
@@ -525,6 +539,7 @@ window.AdvisorBorrowApprovalView = function() {
       : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
           filteredPending.map(function(req) {
             var busy = processing[req.id];
+            var eqLoc = (equipment.find(function(e) { return e.id === req.equipmentId; }) || {}).location;
             return React.createElement('div', { key: req.id, className: 'glass-card', style: { padding: '16px 20px' } },
               React.createElement('div', { style: { display: 'flex', gap: 16, alignItems: 'center' } },
                 React.createElement('div', { style: { flex: 1 } },
@@ -534,6 +549,7 @@ window.AdvisorBorrowApprovalView = function() {
                   ),
                   React.createElement('div', { style: { fontSize: 14, color: '#374151', marginBottom: 2 } }, '📦 ' + req.equipmentName + ' × ' + req.quantity),
                   React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, '📅 ' + req.borrowDate + ' → ' + req.returnDate),
+                  eqLoc && React.createElement('div', { style: { fontSize: 13, color: '#6b7280', marginTop: 2 } }, '📍 ' + eqLoc),
                   React.createElement('div', { style: { fontSize: 13, color: '#6b7280', marginTop: 2 } }, '📝 ' + req.reason)
                 ),
                 React.createElement('div', { style: { display: 'flex', gap: 8, flexShrink: 0 } },
@@ -584,6 +600,7 @@ window.AdvisorReturnTrackingView = function() {
 
   var renderLoan = function(req, isOverdue) {
     var busy = processing[req.id];
+    var eqLoc = (equipment.find(function(e) { return e.id === req.equipmentId; }) || {}).location;
     var daysLeft = req.returnDate ? Math.ceil((new Date(req.returnDate) - new Date(today)) / 86400000) : null;
     return React.createElement('div', { key: req.id, className: 'glass-card', style: { padding: '14px 18px', borderLeft: '4px solid ' + (isOverdue ? '#ef4444' : '#3b82f6'), background: isOverdue ? 'rgba(239,68,68,0.04)' : undefined } },
       React.createElement('div', { style: { display: 'flex', gap: 14, alignItems: 'center' } },
@@ -594,7 +611,8 @@ window.AdvisorReturnTrackingView = function() {
           ),
           React.createElement('div', { style: { fontWeight: 700, fontSize: 15 } }, req.studentName + ' '),
           React.createElement('div', { style: { fontSize: 13, color: '#374151' } }, '📦 ' + req.equipmentName + ' × ' + req.quantity),
-          React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, '📅 ยืม ' + req.borrowDate + ' • กำหนดคืน ' + req.returnDate)
+          React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, '📅 ยืม ' + req.borrowDate + ' • กำหนดคืน ' + req.returnDate),
+          eqLoc && React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, '📍 ' + eqLoc)
         ),
         React.createElement('button', {
           className: 'btn-primary', disabled: busy,
@@ -634,10 +652,12 @@ window.AdvisorReturnTrackingView = function() {
       React.createElement('div', { style: { fontSize: 14, fontWeight: 700, color: '#7c3aed', marginBottom: 10 } }, '📤 รายการเบิกจ่ายที่อนุมัติแล้ว (ไม่ต้องส่งคืน)'),
       React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
         approvedRequisitions.map(function(req) {
+          var reqLoc = (equipment.find(function(e) { return e.id === req.equipmentId; }) || {}).location;
           return React.createElement('div', { key: req.id, className: 'glass-card', style: { padding: '12px 16px', borderLeft: '4px solid #8b5cf6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
             React.createElement('div', {},
               React.createElement('div', { style: { fontWeight: 600 } }, req.studentName),
-              React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, '📦 ' + req.equipmentName + ' × ' + req.quantity + ' • วันที่เบิก ' + req.borrowDate)
+              React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, '📦 ' + req.equipmentName + ' × ' + req.quantity + ' • วันที่เบิก ' + req.borrowDate),
+              reqLoc && React.createElement('div', { style: { fontSize: 13, color: '#6b7280' } }, '📍 ' + reqLoc)
             ),
             React.createElement('span', { style: { fontSize: 12, padding: '4px 10px', background: 'rgba(139,92,246,0.12)', color: '#7c3aed', borderRadius: 20, fontWeight: 600 } }, '✅ เบิกแล้ว')
           );

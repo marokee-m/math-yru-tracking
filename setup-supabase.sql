@@ -53,8 +53,12 @@ create table if not exists equipment (
   "availableQuantity" int2 default 0,
   "imageUrl" text,
   description text,
-  "borrowType" text default 'borrow'
+  "borrowType" text default 'borrow',
+  location text
 );
+
+-- Migration: เพิ่มคอลัมน์ location ให้ตาราง equipment ที่สร้างไว้แล้ว (รันซ้ำได้ปลอดภัย)
+alter table equipment add column if not exists location text;
 
 create table if not exists borrow_requests (
   id text primary key,
