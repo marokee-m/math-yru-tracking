@@ -330,6 +330,10 @@ window.StudentEquipmentCatalog = function() {
       createdAt: new Date().toISOString()
     };
     actions.addBorrowRequest(req).then(function() {
+      // ตัดยอดคงเหลือทันทีเมื่อส่งคำขอ (จองสต็อก ไม่ต้องรออนุมัติ)
+      var eq = equipment.find(function(e) { return e.id === borrowItem.id; }) || borrowItem;
+      return actions.updateEquipment(borrowItem.id, { availableQuantity: Math.max(0, (eq.availableQuantity || 0) - qty) });
+    }).then(function() {
       setSubmitting(false);
       setBorrowItem(null);
       setSuccessMsg('✅ ส่งคำขอยืม "' + req.equipmentName + '" เรียบร้อยแล้ว');
@@ -470,11 +474,11 @@ window.StudentMyBorrowsView = function() {
     setEditMsg('');
   };
 
-  // จำนวนสูงสุดที่แก้ได้ = คงเหลือของอุปกรณ์ตอนนี้ (คำขอที่รออนุมัติยังไม่ได้ตัดสต็อก)
+  // จำนวนสูงสุดที่แก้ได้ = คงเหลือปัจจุบัน + จำนวนที่คำขอนี้จองไว้ (เพราะสต็อกถูกตัดไปแล้วตอนส่งคำขอ)
   var editMaxQty = function() {
     if (!editItem) return 1;
     var eq = equipment.find(function(e) { return e.id === editItem.equipmentId; });
-    return eq ? (eq.availableQuantity || 0) : (editItem.quantity || 1);
+    return eq ? ((eq.availableQuantity || 0) + (editItem.quantity || 0)) : (editItem.quantity || 1);
   };
 
   var handleSaveEdit = function() {
@@ -485,9 +489,17 @@ window.StudentMyBorrowsView = function() {
     var qty = parseInt(editForm.quantity) || 1;
     var maxQty = editMaxQty();
     if (qty < 1 || qty > maxQty) { setEditMsg('⚠ จำนวนต้องอยู่ระหว่าง 1 ถึง ' + maxQty); return; }
+    var oldQty = editItem.quantity || 0;
     setSubmitting(true);
     actions.updateBorrowRequest(editItem.id, {
       quantity: qty, borrowDate: editForm.borrowDate, returnDate: editForm.returnDate, reason: editForm.reason.trim()
+    }).then(function() {
+      // ปรับสต็อกตามส่วนต่างของจำนวนที่จองไว้ (ตัดเพิ่มถ้ายืมมากขึ้น / คืนถ้ายืมน้อยลง)
+      var diff = qty - oldQty;
+      if (diff !== 0) {
+        var eq = equipment.find(function(e) { return e.id === editItem.equipmentId; });
+        if (eq) return actions.updateEquipment(eq.id, { availableQuantity: Math.max(0, Math.min(eq.totalQuantity || 0, (eq.availableQuantity || 0) - diff)) });
+      }
     }).then(function() {
       setSubmitting(false); setEditItem(null);
     }).catch(function(e) {
@@ -497,9 +509,13 @@ window.StudentMyBorrowsView = function() {
 
   var confirmDelete = function() {
     if (!deleteTarget) return;
-    var id = deleteTarget.id;
+    var req = deleteTarget;
     setDeleteTarget(null);
-    actions.deleteBorrowRequest(id).catch(function(e) {
+    actions.deleteBorrowRequest(req.id).then(function() {
+      // คืนสต็อกที่จองไว้ (คำขอที่ลบได้ต้องเป็นสถานะรออนุมัติเท่านั้น)
+      var eq = equipment.find(function(e) { return e.id === req.equipmentId; });
+      if (eq) return actions.updateEquipment(eq.id, { availableQuantity: Math.min(eq.totalQuantity || 0, (eq.availableQuantity || 0) + (req.quantity || 1)) });
+    }).catch(function(e) {
       alert('⚠ ลบไม่สำเร็จ: ' + (e && e.message ? e.message : 'กรุณาลองใหม่'));
     });
   };
@@ -614,11 +630,8 @@ window.AdvisorBorrowApprovalView = function() {
 
   var handleApprove = function(req) {
     setProcessing(function(p) { return Object.assign({}, p, { [req.id]: true }); });
+    // สต็อกถูกตัดไปแล้วตอนส่งคำขอ — อนุมัติแค่เปลี่ยนสถานะ ไม่ตัดซ้ำ
     actions.updateBorrowRequest(req.id, { status: 'approved', approvedAt: new Date().toISOString() }).then(function() {
-      // นับยอดคงเหลือ: ลดจำนวนที่พร้อมให้ยืมลงตามที่อนุมัติ
-      var eq = equipment.find(function(e) { return e.id === req.equipmentId; });
-      if (eq) return actions.updateEquipment(eq.id, { availableQuantity: Math.max(0, (eq.availableQuantity || 0) - (req.quantity || 1)) });
-    }).then(function() {
       clearBusy(req.id);
     }).catch(function(e) {
       clearBusy(req.id);
@@ -629,6 +642,10 @@ window.AdvisorBorrowApprovalView = function() {
   var handleReject = function(req) {
     setProcessing(function(p) { return Object.assign({}, p, { [req.id]: true }); });
     actions.updateBorrowRequest(req.id, { status: 'rejected', rejectedAt: new Date().toISOString() }).then(function() {
+      // คืนสต็อกที่จองไว้ตอนส่งคำขอกลับเข้าคลัง
+      var eq = equipment.find(function(e) { return e.id === req.equipmentId; });
+      if (eq) return actions.updateEquipment(eq.id, { availableQuantity: Math.min(eq.totalQuantity || 0, (eq.availableQuantity || 0) + (req.quantity || 1)) });
+    }).then(function() {
       clearBusy(req.id);
     }).catch(function(e) {
       clearBusy(req.id);
