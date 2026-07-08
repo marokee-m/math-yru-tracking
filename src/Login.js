@@ -473,7 +473,10 @@ window.AppProvider = function({ children }) {
       setState(function(s) {
         return Object.assign({}, s, { equipment: s.equipment.map(function(e) { return e.id === id ? Object.assign({}, e, data) : e; }) });
       });
-      return sbRef.current.from('equipment').update(data).eq('id', id).then(reloadEquipment);
+      return sbRef.current.from('equipment').update(data).eq('id', id).then(function(res) {
+        if (res && res.error) { console.error('❌ อัปเดตยอดคงเหลือ/อุปกรณ์ไม่สำเร็จ:', res.error.message); throw new Error(res.error.message); }
+        return reloadEquipment();
+      });
     },
     deleteEquipment: function(id) {
       if (sbRef.current) sbRef.current.from('equipment').delete().eq('id', id).then(reloadEquipment);
@@ -483,14 +486,21 @@ window.AppProvider = function({ children }) {
     addBorrowRequest: function(data) {
       if (!sbRef.current) return Promise.resolve();
       var req = Object.assign({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), status: 'pending' }, data);
-      return sbRef.current.from('borrow_requests').insert(req).then(reloadBorrows);
+      // supabase-js v2 คืน { error } แทนการ reject — ต้องเช็ก error เอง ไม่งั้นจะขึ้น success ปลอมทั้งที่บันทึกไม่สำเร็จ
+      return sbRef.current.from('borrow_requests').insert(req).then(function(res) {
+        if (res && res.error) { console.error('❌ ส่งคำขอยืมไม่สำเร็จ:', res.error.message); throw new Error(res.error.message); }
+        return reloadBorrows();
+      });
     },
     updateBorrowRequest: function(id, data) {
       if (!sbRef.current) return Promise.resolve();
       setState(function(s) {
         return Object.assign({}, s, { borrowRequests: s.borrowRequests.map(function(r) { return r.id === id ? Object.assign({}, r, data) : r; }) });
       });
-      return sbRef.current.from('borrow_requests').update(data).eq('id', id).then(reloadBorrows);
+      return sbRef.current.from('borrow_requests').update(data).eq('id', id).then(function(res) {
+        if (res && res.error) { console.error('❌ อัปเดตคำขอยืมไม่สำเร็จ:', res.error.message); throw new Error(res.error.message); }
+        return reloadBorrows();
+      });
     },
 
     // Advisors

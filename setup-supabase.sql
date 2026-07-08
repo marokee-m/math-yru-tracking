@@ -64,19 +64,29 @@ create table if not exists borrow_requests (
   id text primary key,
   "studentId" text,
   "studentName" text,
+  "studentCode" text,
   "equipmentId" text,
+  "equipmentCode" text,
   "equipmentName" text,
   quantity int2 default 1,
   status text default 'pending',
   "borrowType" text default 'borrow',
   "requestDate" text,
+  "borrowDate" text,
   "returnDate" text,
+  reason text,
   "createdAt" text,
   note text,
   "returnedAt" text,
   "approvedAt" text,
   "rejectedAt" text
 );
+
+-- Migration: เพิ่มคอลัมน์ที่แอปใช้จริงให้ตาราง borrow_requests ที่สร้างไว้แล้ว (รันซ้ำได้ปลอดภัย)
+alter table borrow_requests add column if not exists "studentCode" text;
+alter table borrow_requests add column if not exists "equipmentCode" text;
+alter table borrow_requests add column if not exists "borrowDate" text;
+alter table borrow_requests add column if not exists reason text;
 
 -- 2. ปิด Row Level Security (app จัดการ auth เอง)
 alter table students disable row level security;

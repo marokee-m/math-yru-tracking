@@ -102,21 +102,21 @@ window.AdminEquipmentView = function() {
   var filteredEquipment = eqSearch ? equipment.filter(function(item) { var q = eqSearch.toLowerCase(); return (item.name||'').toLowerCase().includes(q) || (item.code||'').toLowerCase().includes(q); }) : equipment;
 
   return React.createElement(React.Fragment, null,
-    React.createElement('div', { className: 'fade-in', style: { padding: '24px', maxWidth: 1000, margin: '0 auto' } },
+    React.createElement('div', { className: 'fade-in', style: { padding: '8px 4px', maxWidth: 1000, margin: '0 auto' } },
       // Header
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
         React.createElement('div', {},
           React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '🗄️ จัดการอุปกรณ์'),
           React.createElement('p', { style: { fontSize: 14, color: '#6b7280', marginTop: 4 } }, 'อุปกรณ์ทั้งหมด ' + equipment.length + ' รายการ')
         ),
-        React.createElement('div', { style: { display: 'flex', gap: 10, alignItems: 'center' } },
-          React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหาอุปกรณ์...', value: eqSearch, onChange: function(e) { setEqSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, width: 200, boxSizing: 'border-box' } }),
-          React.createElement('button', { className: 'btn-primary', onClick: openAdd }, '+ เพิ่มอุปกรณ์')
+        React.createElement('div', { style: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', flex: '1 1 260px', justifyContent: 'flex-end' } },
+          React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหาอุปกรณ์...', value: eqSearch, onChange: function(e) { setEqSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, flex: '1 1 160px', minWidth: 0, boxSizing: 'border-box' } }),
+          React.createElement('button', { className: 'btn-primary', onClick: openAdd, style: { whiteSpace: 'nowrap' } }, '+ เพิ่มอุปกรณ์')
         )
       ),
-      // Table
-      React.createElement('div', { className: 'glass-card', style: { overflow: 'hidden' } },
-        React.createElement('table', { className: 'glass-table' },
+      // Table (เลื่อนแนวนอนได้บนจอมือถือ)
+      React.createElement('div', { className: 'glass-card', style: { overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: 0 } },
+        React.createElement('table', { className: 'glass-table', style: { minWidth: 760 } },
           React.createElement('thead', {},
             React.createElement('tr', {},
               React.createElement('th', { style: { width: 60 } }, 'ภาพ'),
@@ -344,13 +344,13 @@ window.StudentEquipmentCatalog = function() {
   var filteredCatalog = catSearch ? equipment.filter(function(item) { var q = catSearch.toLowerCase(); return (item.name||'').toLowerCase().includes(q) || (item.code||'').toLowerCase().includes(q); }) : equipment;
 
   return React.createElement(React.Fragment, null,
-    React.createElement('div', { className: 'fade-in', style: { padding: '24px', maxWidth: 1100, margin: '0 auto' } },
+    React.createElement('div', { className: 'fade-in', style: { padding: '8px 4px', maxWidth: 1100, margin: '0 auto' } },
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
         React.createElement('div', {},
           React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '📦 คลังอุปกรณ์คณิตศาสตร์'),
           React.createElement('p', { style: { fontSize: 14, color: '#6b7280', marginTop: 4 } }, 'คลิกที่อุปกรณ์เพื่อส่งคำขอยืม')
         ),
-        React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหาอุปกรณ์...', value: catSearch, onChange: function(e) { setCatSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, width: 200, boxSizing: 'border-box' } })
+        React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหาอุปกรณ์...', value: catSearch, onChange: function(e) { setCatSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, flex: '1 1 160px', minWidth: 0, maxWidth: 260, boxSizing: 'border-box' } })
       ),
       successMsg && React.createElement('div', { style: { padding: '12px 16px', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, marginBottom: 16, fontSize: 14, color: '#15803d', fontWeight: 600 } }, successMsg),
       // Grid
@@ -461,13 +461,13 @@ window.StudentMyBorrowsView = function() {
 
   var filteredBorrows = borrowSearch ? myRequests.filter(function(r) { return (r.equipmentName||'').toLowerCase().includes(borrowSearch.toLowerCase()); }) : myRequests;
 
-  return React.createElement('div', { className: 'fade-in', style: { padding: '24px', maxWidth: 900, margin: '0 auto' } },
+  return React.createElement('div', { className: 'fade-in', style: { padding: '8px 4px', maxWidth: 900, margin: '0 auto' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
       React.createElement('div', {},
         React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '📋 ประวัติการยืมของฉัน'),
         React.createElement('p', { style: { fontSize: 14, color: '#6b7280', marginTop: 4 } }, 'คำขอทั้งหมด ' + myRequests.length + ' รายการ')
       ),
-      React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหาอุปกรณ์...', value: borrowSearch, onChange: function(e) { setBorrowSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, width: 200, boxSizing: 'border-box' } })
+      React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหาอุปกรณ์...', value: borrowSearch, onChange: function(e) { setBorrowSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, flex: '1 1 160px', minWidth: 0, maxWidth: 260, boxSizing: 'border-box' } })
     ),
     filteredBorrows.length === 0
       ? React.createElement('div', { className: 'glass-card', style: { padding: '48px', textAlign: 'center', color: '#9ca3af' } }, borrowSearch ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีประวัติการยืม')
@@ -507,32 +507,41 @@ window.AdvisorBorrowApprovalView = function() {
   var [processing, setProcessing] = React.useState({});
   var [approveSearch, setApproveSearch] = React.useState('');
 
+  var clearBusy = function(id) { setProcessing(function(p) { var n = Object.assign({}, p); delete n[id]; return n; }); };
+
   var handleApprove = function(req) {
     setProcessing(function(p) { return Object.assign({}, p, { [req.id]: true }); });
     actions.updateBorrowRequest(req.id, { status: 'approved', approvedAt: new Date().toISOString() }).then(function() {
-      // Reduce available quantity
+      // นับยอดคงเหลือ: ลดจำนวนที่พร้อมให้ยืมลงตามที่อนุมัติ
       var eq = equipment.find(function(e) { return e.id === req.equipmentId; });
-      if (eq) actions.updateEquipment(eq.id, { availableQuantity: Math.max(0, (eq.availableQuantity || 0) - (req.quantity || 1)) });
-      setProcessing(function(p) { var n = Object.assign({}, p); delete n[req.id]; return n; });
+      if (eq) return actions.updateEquipment(eq.id, { availableQuantity: Math.max(0, (eq.availableQuantity || 0) - (req.quantity || 1)) });
+    }).then(function() {
+      clearBusy(req.id);
+    }).catch(function(e) {
+      clearBusy(req.id);
+      alert('⚠ อนุมัติไม่สำเร็จ: ' + (e && e.message ? e.message : 'กรุณาลองใหม่'));
     });
   };
 
   var handleReject = function(req) {
     setProcessing(function(p) { return Object.assign({}, p, { [req.id]: true }); });
     actions.updateBorrowRequest(req.id, { status: 'rejected', rejectedAt: new Date().toISOString() }).then(function() {
-      setProcessing(function(p) { var n = Object.assign({}, p); delete n[req.id]; return n; });
+      clearBusy(req.id);
+    }).catch(function(e) {
+      clearBusy(req.id);
+      alert('⚠ ปฏิเสธไม่สำเร็จ: ' + (e && e.message ? e.message : 'กรุณาลองใหม่'));
     });
   };
 
   var filteredPending = approveSearch ? pendingRequests.filter(function(r) { var q = approveSearch.toLowerCase(); return (r.studentName||'').toLowerCase().includes(q) || (r.equipmentName||'').toLowerCase().includes(q); }) : pendingRequests;
 
-  return React.createElement('div', { className: 'fade-in', style: { padding: '24px', maxWidth: 900, margin: '0 auto' } },
+  return React.createElement('div', { className: 'fade-in', style: { padding: '8px 4px', maxWidth: 900, margin: '0 auto' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
       React.createElement('div', {},
         React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '✅ อนุมัติการยืมอุปกรณ์'),
         React.createElement('p', { style: { fontSize: 14, color: '#6b7280', marginTop: 4 } }, 'คำขอรออนุมัติ ' + pendingRequests.length + ' รายการ')
       ),
-      React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหา นศ./อุปกรณ์...', value: approveSearch, onChange: function(e) { setApproveSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, width: 200, boxSizing: 'border-box' } })
+      React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหา นศ./อุปกรณ์...', value: approveSearch, onChange: function(e) { setApproveSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, flex: '1 1 160px', minWidth: 0, maxWidth: 260, boxSizing: 'border-box' } })
     ),
     filteredPending.length === 0
       ? React.createElement('div', { className: 'glass-card', style: { padding: '48px', textAlign: 'center', color: '#9ca3af' } }, approveSearch ? 'ไม่พบรายการที่ค้นหา' : '✅ ไม่มีคำขอรออนุมัติ')
@@ -541,7 +550,7 @@ window.AdvisorBorrowApprovalView = function() {
             var busy = processing[req.id];
             var eqLoc = (equipment.find(function(e) { return e.id === req.equipmentId; }) || {}).location;
             return React.createElement('div', { key: req.id, className: 'glass-card', style: { padding: '16px 20px' } },
-              React.createElement('div', { style: { display: 'flex', gap: 16, alignItems: 'center' } },
+              React.createElement('div', { style: { display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' } },
                 React.createElement('div', { style: { flex: 1 } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 } },
                     React.createElement('span', { style: { fontSize: 15, fontWeight: 700 } }, req.studentName),
@@ -587,10 +596,14 @@ window.AdvisorReturnTrackingView = function() {
   var handleReturn = function(req) {
     setProcessing(function(p) { return Object.assign({}, p, { [req.id]: true }); });
     actions.updateBorrowRequest(req.id, { status: 'returned', returnedAt: new Date().toISOString() }).then(function() {
-      // Increase available quantity
+      // นับยอดคงเหลือ: คืนจำนวนที่ยืมกลับเข้าสต็อก (ไม่เกินจำนวนทั้งหมด)
       var eq = equipment.find(function(e) { return e.id === req.equipmentId; });
-      if (eq) actions.updateEquipment(eq.id, { availableQuantity: Math.min(eq.totalQuantity || 0, (eq.availableQuantity || 0) + (req.quantity || 1)) });
+      if (eq) return actions.updateEquipment(eq.id, { availableQuantity: Math.min(eq.totalQuantity || 0, (eq.availableQuantity || 0) + (req.quantity || 1)) });
+    }).then(function() {
       setProcessing(function(p) { var n = Object.assign({}, p); delete n[req.id]; return n; });
+    }).catch(function(e) {
+      setProcessing(function(p) { var n = Object.assign({}, p); delete n[req.id]; return n; });
+      alert('⚠ บันทึกการคืนไม่สำเร็จ: ' + (e && e.message ? e.message : 'กรุณาลองใหม่'));
     });
   };
 
@@ -603,8 +616,8 @@ window.AdvisorReturnTrackingView = function() {
     var eqLoc = (equipment.find(function(e) { return e.id === req.equipmentId; }) || {}).location;
     var daysLeft = req.returnDate ? Math.ceil((new Date(req.returnDate) - new Date(today)) / 86400000) : null;
     return React.createElement('div', { key: req.id, className: 'glass-card', style: { padding: '14px 18px', borderLeft: '4px solid ' + (isOverdue ? '#ef4444' : '#3b82f6'), background: isOverdue ? 'rgba(239,68,68,0.04)' : undefined } },
-      React.createElement('div', { style: { display: 'flex', gap: 14, alignItems: 'center' } },
-        React.createElement('div', { style: { flex: 1 } },
+      React.createElement('div', { style: { display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' } },
+        React.createElement('div', { style: { flex: '1 1 200px', minWidth: 0 } },
           React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 } },
             isOverdue && React.createElement('span', { style: { fontSize: 13, fontWeight: 700, color: '#dc2626', background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: 20 } }, '⚠️ เกินกำหนด ' + Math.abs(daysLeft) + ' วัน'),
             !isOverdue && daysLeft !== null && daysLeft <= 2 && React.createElement('span', { style: { fontSize: 13, fontWeight: 700, color: '#d97706', background: 'rgba(245,158,11,0.12)', padding: '2px 8px', borderRadius: 20 } }, '⏰ อีก ' + daysLeft + ' วัน')
@@ -623,13 +636,13 @@ window.AdvisorReturnTrackingView = function() {
     );
   };
 
-  return React.createElement('div', { className: 'fade-in', style: { padding: '24px', maxWidth: 900, margin: '0 auto' } },
+  return React.createElement('div', { className: 'fade-in', style: { padding: '8px 4px', maxWidth: 900, margin: '0 auto' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
       React.createElement('div', {},
         React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '📦 ติดตามการคืนอุปกรณ์'),
         React.createElement('p', { style: { fontSize: 14, color: '#6b7280', marginTop: 4 } }, 'กำลังยืมอยู่ ' + activeLoans.length + ' รายการ')
       ),
-      React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหา นศ./อุปกรณ์...', value: returnSearch, onChange: function(e) { setReturnSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, width: 200, boxSizing: 'border-box' } })
+      React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหา นศ./อุปกรณ์...', value: returnSearch, onChange: function(e) { setReturnSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, flex: '1 1 160px', minWidth: 0, maxWidth: 260, boxSizing: 'border-box' } })
     ),
     // Overdue section
     overdueLoans.length > 0 && React.createElement('div', { style: { marginBottom: 20 } },
