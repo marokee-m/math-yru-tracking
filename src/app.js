@@ -10,6 +10,7 @@ function App() {
   const navConfigs = {
     admin: [
       { key: 'curriculum', label: 'จัดการหลักสูตร', icon: '📚' },
+      { key: 'plo',        label: 'จัดการ PLO',      icon: '🎯' },
       { key: 'users',      label: 'จัดการผู้ใช้',   icon: '👥' },
       { key: 'equipment',  label: 'ยืมคืนอุปกรณ์',  icon: '🗄️' },
     ],
@@ -17,6 +18,7 @@ function App() {
       { key: 'quick-input', label: 'บันทึกรายวิชา',    icon: '📋' },
       { key: 'checklist',   label: 'ตรวจสอบหลักสูตร', icon: '✅' },
       { key: 'simulator',   label: 'จำลองเกรด/GPAX',  icon: '🧮' },
+      { key: 'my-plo',      label: 'PLO ของฉัน',       icon: '🎯' },
       { key: 'license',     label: 'ใบประกอบวิชาชีพ',  icon: '📜' },
       { key: 'eq-catalog',  label: 'คลังอุปกรณ์',      icon: '📦' },
       { key: 'my-borrows',  label: 'การยืมของฉัน',     icon: '📋' },
@@ -24,6 +26,7 @@ function App() {
     advisor: [
       { key: 'dashboard',      label: 'Dashboard',        icon: '📊' },
       { key: 'tracking',       label: 'ติดตามรายบุคคล',  icon: '🔍' },
+      { key: 'plo',            label: 'ติดตาม PLO',       icon: '🎯' },
       { key: 'warning',        label: 'Early Warning',     icon: '🚨' },
       { key: 'export',         label: 'Export รายงาน',    icon: '📤' },
       { key: 'license',        label: 'ใบประกอบวิชาชีพ', icon: '📜' },
@@ -60,6 +63,7 @@ function App() {
 
     if (currentRole === 'admin') {
       if (currentPage === 'curriculum') return React.createElement(window.AdminCurriculumView);
+      if (currentPage === 'plo')        return React.createElement(window.AdminPLOView);
       if (currentPage === 'users')      return React.createElement(window.AdminUserView);
       if (currentPage === 'equipment')  return React.createElement(window.AdminEquipmentView);
     }
@@ -72,11 +76,13 @@ function App() {
       if (currentPage === 'license')     return React.createElement(window.StudentLicenseView, { student: s, actions: actions });
       if (currentPage === 'eq-catalog')  return React.createElement(window.StudentEquipmentCatalog);
       if (currentPage === 'my-borrows')  return React.createElement(window.StudentMyBorrowsView);
+      if (currentPage === 'my-plo')      return React.createElement(window.StudentPLOView);
     }
 
     if (currentRole === 'advisor') {
       if (currentPage === 'dashboard')      return React.createElement(window.AdvisorDashboardView);
       if (currentPage === 'tracking')       return React.createElement(window.AdvisorTrackingView);
+      if (currentPage === 'plo')            return React.createElement(window.AdvisorPLOView);
       if (currentPage === 'warning')        return React.createElement(window.AdvisorEarlyWarningView);
       if (currentPage === 'export')         return React.createElement(window.AdvisorExportView);
       if (currentPage === 'license')        return React.createElement(window.AdvisorLicenseView, { students: state.students, courses: state.courses, advisorId: currentUserId });

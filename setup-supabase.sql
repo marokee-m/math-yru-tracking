@@ -88,6 +88,16 @@ alter table borrow_requests add column if not exists "equipmentCode" text;
 alter table borrow_requests add column if not exists "borrowDate" text;
 alter table borrow_requests add column if not exists reason text;
 
+-- ตาราง plo_scores — คะแนน PLO รายบุคคล (1 แถว = 1 นักศึกษา × รายวิชา × PLO)
+create table if not exists plo_scores (
+  id text primary key,
+  "studentId" text,
+  "courseCode" text,
+  "ploId" text,
+  score numeric default 0,
+  "updatedAt" text
+);
+
 -- 2. ปิด Row Level Security (app จัดการ auth เอง)
 alter table students disable row level security;
 alter table advisors disable row level security;
@@ -95,6 +105,7 @@ alter table courses disable row level security;
 alter table settings disable row level security;
 alter table equipment disable row level security;
 alter table borrow_requests disable row level security;
+alter table plo_scores disable row level security;
 
 -- 3. สร้าง Storage Buckets
 insert into storage.buckets (id, name, public)

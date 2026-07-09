@@ -237,6 +237,8 @@ window.AppProvider = function({ children }) {
       borrowRequests: [],
       curriculumMeta: window.AppData.CURRICULUM_META,
       curricula: [],
+      ploConfig: [],
+      ploScores: [],
     };
   });
 
@@ -264,16 +266,24 @@ window.AppProvider = function({ children }) {
 
   var reloadSettings = React.useCallback(async function() {
     if (!sbRef.current) return;
-    var [currRes, curriculaRes] = await Promise.all([
+    var [currRes, curriculaRes, ploRes] = await Promise.all([
       sbRef.current.from('settings').select('*').eq('id', 'curriculum').single(),
       sbRef.current.from('settings').select('*').eq('id', 'curricula_list').single(),
+      sbRef.current.from('settings').select('*').eq('id', 'plo_config').single(),
     ]);
     setState(function(s) {
       var next = Object.assign({}, s);
       if (currRes.data) next.curriculumMeta = currRes.data.data || s.curriculumMeta;
       if (curriculaRes.data && curriculaRes.data.data) next.curricula = curriculaRes.data.data;
+      if (ploRes.data && ploRes.data.data) next.ploConfig = ploRes.data.data;
       return next;
     });
+  }, []);
+
+  var reloadPloScores = React.useCallback(async function() {
+    if (!sbRef.current) return;
+    var res = await sbRef.current.from('plo_scores').select('*');
+    if (res.data) setState(function(s) { return Object.assign({}, s, { ploScores: res.data }); });
   }, []);
 
   var reloadEquipment = React.useCallback(async function() {
@@ -301,7 +311,7 @@ window.AppProvider = function({ children }) {
     window.seedSupabaseIfEmpty(sb).then(async function() {
       await Promise.all([
         reloadStudents(), reloadAdvisors(), reloadCourses(),
-        reloadSettings(), reloadEquipment(), reloadBorrows(),
+        reloadSettings(), reloadEquipment(), reloadBorrows(), reloadPloScores(),
       ]);
       setState(function(s) { return Object.assign({}, s, { loading: false }); });
     }).catch(function(err) {
@@ -316,6 +326,7 @@ window.AppProvider = function({ children }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, reloadSettings)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, reloadEquipment)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, reloadBorrows)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'plo_scores' }, reloadPloScores)
       .subscribe();
 
     return function() { sb.removeChannel(channel); };
@@ -460,6 +471,52 @@ window.AppProvider = function({ children }) {
         }
         return Object.assign({}, s, { curricula: newList });
       });
+    },
+
+    // ── PLO config (เก็บใน settings id='plo_config' เป็น jsonb array) ──
+    savePloConfig: function(nextList) {
+      setState(function(s) {
+        if (sbRef.current) {
+          sbRef.current.from('settings').upsert({ id: 'plo_config', data: nextList }).then(function(res) {
+            if (res && res.error) console.error('❌ บันทึก PLO ไม่สำเร็จ:', res.error.message);
+          });
+        }
+        return Object.assign({}, s, { ploConfig: nextList });
+      });
+    },
+    addPlo: function(plo) {
+      this.savePloConfig((state.ploConfig || []).concat([plo]));
+    },
+    updatePlo: function(id, updates) {
+      this.savePloConfig((state.ploConfig || []).map(function(p) { return p.id === id ? Object.assign({}, p, updates) : p; }));
+    },
+    deletePlo: function(id) {
+      this.savePloConfig((state.ploConfig || []).filter(function(p) { return p.id !== id; }));
+    },
+
+    // ── PLO scores (ตาราง plo_scores; 1 แถว = 1 (นศ. × วิชา × PLO)) ──
+    commitPloScores: function(upserts, deleteIds) {
+      upserts = upserts || []; deleteIds = deleteIds || [];
+      setState(function(s) {
+        var map = {};
+        (s.ploScores || []).forEach(function(r) { map[r.id] = r; });
+        deleteIds.forEach(function(id) { delete map[id]; });
+        upserts.forEach(function(r) { map[r.id] = r; });
+        return Object.assign({}, s, { ploScores: Object.keys(map).map(function(k) { return map[k]; }) });
+      });
+      if (!sbRef.current) return Promise.resolve();
+      var ps = [];
+      if (upserts.length) {
+        ps.push(sbRef.current.from('plo_scores').upsert(upserts).then(function(res) {
+          if (res && res.error) { console.error('❌ บันทึกคะแนน PLO ไม่สำเร็จ:', res.error.message); throw new Error(res.error.message); }
+        }));
+      }
+      if (deleteIds.length) {
+        ps.push(sbRef.current.from('plo_scores').delete().in('id', deleteIds).then(function(res) {
+          if (res && res.error) { console.error('❌ ลบคะแนน PLO ไม่สำเร็จ:', res.error.message); throw new Error(res.error.message); }
+        }));
+      }
+      return Promise.all(ps).then(function() { return reloadPloScores(); });
     },
 
     // Equipment
