@@ -471,10 +471,11 @@ window.AdvisorPLOView = function(props) {
     }).catch(function(e) { setSavingGrid(false); setGridMsg('⚠ บันทึกไม่สำเร็จ: ' + (e && e.message ? e.message : '')); });
   };
 
-  // วางคะแนนจากรหัส (คัดลอกมาจาก Excel/เอกสาร) ลงคอลัมน์ PLO
+  // วางคะแนนจากรหัส (คัดลอกมาจาก Excel/เอกสาร) แล้วบันทึกลงฐานข้อมูลทันที
   var applyPaste = function() {
     if (!pastePlo) return;
-    var updates = {}, matched = 0, unmatched = [];
+    var full = courseFullMark(pastePlo);
+    var updates = {}, upserts = [], matched = 0, unmatched = [], errors = [];
     pasteText.split('\n').forEach(function(ln) {
       var t = ln.trim(); if (!t) return;
       var parts = t.split(/[\s,]+/);
@@ -482,11 +483,23 @@ window.AdvisorPLOView = function(props) {
       var sid = parts[0];
       var val = parts[parts.length - 1];
       var stu = entryStudents.find(function(s) { return s.studentId === sid; });
-      if (stu) { updates[sid + '__' + pastePlo.id] = val; matched++; }
-      else unmatched.push(sid);
+      if (!stu) { unmatched.push(sid); return; }
+      var v = parseFloat(val);
+      if (isNaN(v) || v < 0) { errors.push(sid + ': คะแนนไม่ถูกต้อง'); return; }
+      if (v > full) { errors.push(sid + ': เกินคะแนนเต็ม (' + full + ')'); return; }
+      updates[sid + '__' + pastePlo.id] = String(v);
+      upserts.push({ id: window.PLOUtils.scoreId(sid, selCourse, pastePlo.id), studentId: sid, courseCode: selCourse, ploId: pastePlo.id, score: v, updatedAt: new Date().toISOString() });
+      matched++;
     });
+    if (errors.length) { setPasteInfo('⚠ ' + errors.slice(0, 6).join(' | ')); return; }
+    if (!upserts.length) { setPasteInfo('⚠ ไม่พบรหัสนักศึกษาที่ตรงกับตารางนี้' + (unmatched.length ? (': ' + unmatched.slice(0, 6).join(', ')) : '')); return; }
     setGrid(function(g) { return Object.assign({}, g, updates); });
-    setPasteInfo('✅ นำเข้า ' + matched + ' รายการลงตาราง' + (unmatched.length ? (' • ⚠ ไม่พบรหัส ' + unmatched.length + ' รายการ: ' + unmatched.slice(0, 6).join(', ') + (unmatched.length > 6 ? '...' : '')) : ''));
+    setPasteInfo('⏳ กำลังบันทึก...');
+    actions.commitPloScores(upserts, []).then(function() {
+      setPasteInfo('✅ บันทึก ' + matched + ' รายการเรียบร้อย' + (unmatched.length ? (' • ⚠ ไม่พบรหัส ' + unmatched.length + ': ' + unmatched.slice(0, 6).join(', ') + (unmatched.length > 6 ? '...' : '')) : ''));
+    }).catch(function(e) {
+      setPasteInfo('⚠ บันทึกไม่สำเร็จ: ' + (e && e.message ? e.message : 'กรุณาลองใหม่'));
+    });
   };
 
   // ── Tab: พัฒนาการ ──
@@ -601,7 +614,7 @@ window.AdvisorPLOView = function(props) {
         pasteInfo && React.createElement('div', { style: { fontSize: 13, color: pasteInfo.indexOf('✅') === 0 ? '#15803d' : '#dc2626' } }, pasteInfo),
         React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
           React.createElement('button', { className: 'btn-secondary', onClick: function() { setPastePlo(null); } }, 'ปิด'),
-          React.createElement('button', { className: 'btn-primary', onClick: applyPaste }, '⬇️ นำเข้าลงตาราง')
+          React.createElement('button', { className: 'btn-primary', onClick: applyPaste }, '💾 นำเข้าและบันทึก')
         )
       )
     )
