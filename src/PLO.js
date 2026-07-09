@@ -15,8 +15,9 @@
 
 window.PLOUtils = {
   admissionYear: function(studentId) {
+    // รหัสปีการศึกษา = ตำแหน่งที่ 3-4 ของรหัสนักศึกษา เช่น 406904001 → "69"
     var s = String(studentId || '');
-    return s.length >= 2 ? s.slice(0, 2) : s;
+    return s.length >= 4 ? s.slice(2, 4) : s;
   },
   studentCurrId: function(student) {
     return (student && student.curriculumId) ? student.curriculumId : '__default__';
@@ -420,6 +421,9 @@ window.AdvisorPLOView = function() {
   var [grid, setGrid] = React.useState({});
   var [savingGrid, setSavingGrid] = React.useState(false);
   var [gridMsg, setGridMsg] = React.useState('');
+  var [pastePlo, setPastePlo] = React.useState(null);
+  var [pasteText, setPasteText] = React.useState('');
+  var [pasteInfo, setPasteInfo] = React.useState('');
 
   // PLOs ที่วิชานี้ส่งผล + คะแนนเต็มของวิชานี้ในแต่ละ PLO
   var coursePlos = selCourse ? plos.filter(function(p) { return (p.courses || []).some(function(cm) { return cm.courseCode === selCourse; }); }) : [];
@@ -465,9 +469,33 @@ window.AdvisorPLOView = function() {
     }).catch(function(e) { setSavingGrid(false); setGridMsg('⚠ บันทึกไม่สำเร็จ: ' + (e && e.message ? e.message : '')); });
   };
 
+  // วางคะแนนจากรหัส (คัดลอกมาจาก Excel/เอกสาร) ลงคอลัมน์ PLO
+  var applyPaste = function() {
+    if (!pastePlo) return;
+    var updates = {}, matched = 0, unmatched = [];
+    pasteText.split('\n').forEach(function(ln) {
+      var t = ln.trim(); if (!t) return;
+      var parts = t.split(/[\s,]+/);
+      if (parts.length < 2) return;
+      var sid = parts[0];
+      var val = parts[parts.length - 1];
+      var stu = entryStudents.find(function(s) { return s.studentId === sid; });
+      if (stu) { updates[sid + '__' + pastePlo.id] = val; matched++; }
+      else unmatched.push(sid);
+    });
+    setGrid(function(g) { return Object.assign({}, g, updates); });
+    setPasteInfo('✅ นำเข้า ' + matched + ' รายการลงตาราง' + (unmatched.length ? (' • ⚠ ไม่พบรหัส ' + unmatched.length + ' รายการ: ' + unmatched.slice(0, 6).join(', ') + (unmatched.length > 6 ? '...' : '')) : ''));
+  };
+
   // ── Tab: พัฒนาการ ──
   var [progStudentId, setProgStudentId] = React.useState('');
+  var [progSearch, setProgSearch] = React.useState('');
   var progStudent = filteredStudents.find(function(s) { return s.id === progStudentId; }) || null;
+  var progList = filteredStudents.filter(function(s) {
+    if (!progSearch) return true;
+    var q = progSearch.toLowerCase();
+    return (s.name || '').toLowerCase().indexOf(q) >= 0 || (s.studentId || '').toLowerCase().indexOf(q) >= 0;
+  });
 
   var tabs = [{ k: 'entry', t: '✍️ กรอกคะแนน' }, { k: 'summary', t: '📊 สรุปผล' }, { k: 'progress', t: '📈 พัฒนาการ' }];
   var selStyle = { padding: '9px 12px', fontSize: 14, boxSizing: 'border-box', minWidth: 160 };
@@ -505,7 +533,12 @@ window.AdvisorPLOView = function() {
               React.createElement('table', { className: 'glass-table', style: { minWidth: 480 } },
                 React.createElement('thead', {}, React.createElement('tr', {},
                   [React.createElement('th', { key: '_n' }, 'รหัส/ชื่อ นศ.')].concat(coursePlos.map(function(plo) {
-                    return React.createElement('th', { key: plo.id, style: { textAlign: 'center' } }, React.createElement('div', {}, plo.code), React.createElement('div', { style: { fontSize: 10, fontWeight: 400, color: '#9ca3af' } }, 'เต็ม ' + courseFullMark(plo)));
+                    return React.createElement('th', { key: plo.id, style: { textAlign: 'center' } },
+                      React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 } },
+                        React.createElement('span', {}, plo.code),
+                        React.createElement('button', { title: 'วางคะแนนจากรหัสนักศึกษา', onClick: function() { setPastePlo(plo); setPasteText(''); setPasteInfo(''); }, style: { cursor: 'pointer', border: 'none', background: 'rgba(219,39,119,0.12)', color: '#be185d', borderRadius: 6, width: 22, height: 22, fontWeight: 800, lineHeight: 1, fontSize: 15 } }, '+')
+                      ),
+                      React.createElement('div', { style: { fontSize: 10, fontWeight: 400, color: '#9ca3af' } }, 'เต็ม ' + courseFullMark(plo)));
                   }))
                 )),
                 React.createElement('tbody', {},
@@ -536,13 +569,39 @@ window.AdvisorPLOView = function() {
 
     // PROGRESS
     tab === 'progress' && React.createElement('div', {},
-      React.createElement('div', { className: 'no-print', style: { marginBottom: 14 } },
-        React.createElement('select', { className: 'glass-input', style: selStyle, value: progStudentId, onChange: function(e) { setProgStudentId(e.target.value); } },
-          React.createElement('option', { value: '' }, '-- เลือกนักศึกษา --'),
-          filteredStudents.map(function(s) { return React.createElement('option', { key: s.id, value: s.id }, s.studentId + ' — ' + s.name); })
-        )
+      React.createElement('input', { className: 'glass-input no-print', placeholder: '🔍 ค้นหารหัส หรือ ชื่อนักศึกษา...', value: progSearch, onChange: function(e) { setProgSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, width: '100%', maxWidth: 340, boxSizing: 'border-box', marginBottom: 12 } }),
+      React.createElement('div', { className: 'no-print', style: { fontSize: 12, color: '#9ca3af', marginBottom: 8 } }, 'นักศึกษา ' + progList.length + ' คน — คลิกเพื่อดูพัฒนาการรายคน'),
+      React.createElement('div', { className: 'no-print', style: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 } },
+        progList.length === 0
+          ? React.createElement('div', { style: { fontSize: 13, color: '#9ca3af' } }, 'ไม่พบนักศึกษา')
+          : progList.map(function(s) {
+              var sel = s.id === progStudentId;
+              return React.createElement('button', { key: s.id, onClick: function() { setProgStudentId(sel ? '' : s.id); },
+                style: { cursor: 'pointer', textAlign: 'left', padding: '8px 12px', borderRadius: 10, border: '1px solid ' + (sel ? '#e91e8c' : 'rgba(0,0,0,0.1)'), background: sel ? 'rgba(233,30,140,0.08)' : 'rgba(255,255,255,0.6)', fontFamily: 'Sarabun,sans-serif' } },
+                React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: sel ? '#be185d' : '#1f2937' } }, s.name),
+                React.createElement('code', { style: { fontSize: 11, color: '#9ca3af' } }, s.studentId)
+              );
+            })
       ),
-      React.createElement(PLOProgress, { state: state, student: progStudent, plos: plos })
+      progStudent
+        ? React.createElement(PLOProgress, { state: state, student: progStudent, plos: plos })
+        : React.createElement('div', { className: 'glass-card no-print', style: { padding: 28, textAlign: 'center', color: '#9ca3af' } }, '👆 เลือกนักศึกษาเพื่อดูพัฒนาการรายคน')
+    ),
+
+    // Paste-scores modal (วางคะแนนจากรหัสนักศึกษา)
+    React.createElement(window.Modal, { open: !!pastePlo, onClose: function() { setPastePlo(null); }, title: pastePlo ? ('📋 วางคะแนน ' + pastePlo.code + ' จากรหัสนักศึกษา') : '', width: '460px' },
+      pastePlo && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+        React.createElement('div', { style: { fontSize: 13, color: '#6b7280', lineHeight: 1.6 } },
+          'วางข้อมูล 1 คน/บรรทัด เป็น ', React.createElement('b', {}, 'รหัสนักศึกษา'), ' เว้นวรรค/แท็บ แล้วตามด้วย ', React.createElement('b', {}, 'คะแนน'), ' (คะแนนเต็ม ' + courseFullMark(pastePlo) + ')',
+          React.createElement('div', { style: { marginTop: 6, fontFamily: 'monospace', fontSize: 12, background: 'rgba(0,0,0,0.04)', borderRadius: 8, padding: '8px 10px', color: '#374151', whiteSpace: 'pre-wrap' } }, '906993009\t20\n906993010\t0\n906993013\t6')
+        ),
+        React.createElement('textarea', { className: 'glass-input', style: { width: '100%', minHeight: 140, padding: '10px 12px', fontSize: 13, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }, placeholder: 'วางข้อมูลที่นี่...', value: pasteText, onChange: function(e) { setPasteText(e.target.value); } }),
+        pasteInfo && React.createElement('div', { style: { fontSize: 13, color: pasteInfo.indexOf('✅') === 0 ? '#15803d' : '#dc2626' } }, pasteInfo),
+        React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
+          React.createElement('button', { className: 'btn-secondary', onClick: function() { setPastePlo(null); } }, 'ปิด'),
+          React.createElement('button', { className: 'btn-primary', onClick: applyPaste }, '⬇️ นำเข้าลงตาราง')
+        )
+      )
     )
   );
 };
