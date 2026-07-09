@@ -1029,7 +1029,9 @@ window.ProfileEditModal = function({ open, onClose, role, userId, students, advi
 window.Navbar = function({ role, userName, onLogout, onMenuToggle, currentPage, navItems, onProfileEdit }) {
   const roleLabels = { admin: '🛡️ Admin', student: '🎓 นักศึกษา', advisor: '👨‍🏫 อาจารย์' };
   const roleColors = { admin: '#e91e8c', student: '#1565c0', advisor: '#2e7d32' };
-  const currentLabel = (navItems.find(n => n.key === currentPage) || {}).label || '';
+  var _flat = [];
+  (navItems || []).forEach(function(n) { if (n.children) { _flat = _flat.concat(n.children); } else { _flat.push(n); } });
+  const currentLabel = (_flat.find(n => n.key === currentPage) || {}).label || '';
 
   return React.createElement('nav', {
     className: 'glass-nav no-print',
@@ -1079,6 +1081,58 @@ window.Navbar = function({ role, userName, onLogout, onMenuToggle, currentPage, 
 // ---- SIDEBAR ----
 window.Sidebar = function({ navItems, currentPage, onNavigate, isOpen, onClose }) {
   var isMobile = window.innerWidth <= 768;
+
+  // กลุ่มที่ควรเปิดอยู่ = กลุ่มที่มีเมนูย่อยตรงกับหน้าปัจจุบัน
+  var groupHasCurrent = function(item) {
+    return item.children && item.children.some(function(c) { return c.key === currentPage; });
+  };
+  var [expanded, setExpanded] = React.useState(function() {
+    var init = {};
+    navItems.forEach(function(it) { if (groupHasCurrent(it)) init[it.label] = true; });
+    return init;
+  });
+  React.useEffect(function() {
+    navItems.forEach(function(it) {
+      if (groupHasCurrent(it)) setExpanded(function(e) { var n = Object.assign({}, e); n[it.label] = true; return n; });
+    });
+  }, [currentPage]);
+
+  var go = function(key) { onNavigate(key); if (isMobile) onClose(); };
+
+  var renderLeaf = function(item, isChild) {
+    return React.createElement('div', {
+      key: item.key,
+      className: 'nav-item' + (currentPage === item.key ? ' active' : ''),
+      style: isChild ? { paddingLeft: 30 } : null,
+      onClick: function() { go(item.key); }
+    },
+      React.createElement('span', { style: { fontSize: isChild ? 15 : 17 } }, item.icon),
+      React.createElement('span', { style: { fontSize: 14 } }, item.label)
+    );
+  };
+
+  var renderGroup = function(item) {
+    var open = !!expanded[item.label];
+    return React.createElement('div', { key: 'grp_' + item.label },
+      // group header
+      React.createElement('div', {
+        className: 'nav-item',
+        style: { fontWeight: 700, background: open ? 'rgba(233,30,140,0.06)' : undefined },
+        onClick: function() { setExpanded(function(e) { var n = Object.assign({}, e); n[item.label] = !n[item.label]; return n; }); }
+      },
+        React.createElement('span', { style: { fontSize: 17 } }, item.icon),
+        React.createElement('span', { style: { fontSize: 14, flex: 1 } }, item.label),
+        React.createElement('span', { style: { fontSize: 12, color: '#9ca3af', transition: 'transform 0.25s ease', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' } }, '▶')
+      ),
+      // children (slide down)
+      React.createElement('div', {
+        style: { overflow: 'hidden', maxHeight: open ? (item.children.length * 56 + 12) : 0, transition: 'max-height 0.28s ease', display: 'flex', flexDirection: 'column', gap: 2 }
+      },
+        item.children.map(function(c) { return renderLeaf(c, true); })
+      )
+    );
+  };
+
   return React.createElement(React.Fragment, null,
     // Overlay (mobile only)
     isMobile && React.createElement('div', {
@@ -1095,12 +1149,13 @@ window.Sidebar = function({ navItems, currentPage, onNavigate, isOpen, onClose }
         flexDirection: 'column',
         gap: 2,
         flexShrink: 0,
+        overflowY: 'auto',
         // Mobile: fixed overlay
         ...(isMobile ? {
           position: 'fixed', top: 0, bottom: 0, left: isOpen ? 0 : '-220px',
           zIndex: 200, transition: 'left 0.28s ease', boxShadow: isOpen ? '4px 0 24px rgba(0,0,0,0.15)' : 'none'
         } : {
-          position: 'relative', minHeight: 'calc(100vh - 60px)'
+          position: 'relative', minHeight: 'calc(100vh - 60px)', maxHeight: 'calc(100vh - 60px)'
         })
       }
     },
@@ -1113,14 +1168,7 @@ window.Sidebar = function({ navItems, currentPage, onNavigate, isOpen, onClose }
         }, React.createElement(window.Icon, { name: 'close', size: 16, color: '#6b7280' }))
       ),
       navItems.map(function(item) {
-        return React.createElement('div', {
-          key: item.key,
-          className: 'nav-item' + (currentPage === item.key ? ' active' : ''),
-          onClick: function() { onNavigate(item.key); if (isMobile) onClose(); }
-        },
-          React.createElement('span', { style: { fontSize: 17 } }, item.icon),
-          React.createElement('span', { style: { fontSize: 14 } }, item.label)
-        );
+        return item.children ? renderGroup(item) : renderLeaf(item, false);
       })
     )
   );

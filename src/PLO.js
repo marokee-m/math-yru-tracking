@@ -401,11 +401,13 @@ function PLOProgress(props) {
 // ============================================================
 // ADVISOR — ติดตาม PLO (กรอกคะแนน / สรุปผล / พัฒนาการ)
 // ============================================================
-window.AdvisorPLOView = function() {
+window.AdvisorPLOView = function(props) {
   var ctx = window.useApp();
   var state = ctx.state; var actions = ctx.actions;
+  var initialTab = (props && props.initialTab) || 'entry';
 
-  var [tab, setTab] = React.useState('entry');
+  var [tab, setTab] = React.useState(initialTab);
+  React.useEffect(function() { setTab(initialTab); }, [initialTab]);
   var [currId, setCurrId] = React.useState('__default__');
   var [year, setYear] = React.useState('all');
 

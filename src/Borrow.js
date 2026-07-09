@@ -289,7 +289,11 @@ window.StudentEquipmentCatalog = function() {
   var state = ctx.state; var actions = ctx.actions;
   var equipment = state.equipment || [];
   var studentId = state.currentUserId;
-  var student = state.students.find(function(s) { return s.id === studentId; });
+  var isAdvisor = state.currentRole === 'advisor';
+  var me = isAdvisor
+    ? (state.advisors || []).find(function(a) { return a.id === studentId; })
+    : state.students.find(function(s) { return s.id === studentId; });
+  var student = me; // ผู้ยืม (นักศึกษา หรือ อาจารย์)
 
   var [borrowItem, setBorrowItem] = React.useState(null);
   var [borrowForm, setBorrowForm] = React.useState({ quantity: 1, borrowDate: '', returnDate: '', reason: '' });
@@ -316,8 +320,8 @@ window.StudentEquipmentCatalog = function() {
     setSubmitting(true);
     var req = {
       studentId: studentId,
-      studentName: student ? student.name : studentId,
-      studentCode: student ? student.studentId : studentId,
+      studentName: me ? me.name : studentId,
+      studentCode: me ? (isAdvisor ? (me.username || '') : me.studentId) : studentId,
       equipmentId: borrowItem.id,
       equipmentCode: borrowItem.code || '',
       equipmentName: borrowItem.name,
@@ -325,20 +329,22 @@ window.StudentEquipmentCatalog = function() {
       borrowDate: borrowForm.borrowDate,
       returnDate: borrowForm.returnDate,
       reason: borrowForm.reason.trim(),
-      status: 'pending',
+      // อาจารย์ยืมได้ทันที ไม่ต้องรออนุมัติ
+      status: isAdvisor ? 'approved' : 'pending',
+      approvedAt: isAdvisor ? new Date().toISOString() : null,
       borrowType: borrowItem.borrowType || 'borrow',
       createdAt: new Date().toISOString()
     };
     actions.addBorrowRequest(req).then(function() {
-      // ตัดยอดคงเหลือทันทีเมื่อส่งคำขอ (จองสต็อก ไม่ต้องรออนุมัติ)
+      // ตัดยอดคงเหลือทันที (จองสต็อก)
       var eq = equipment.find(function(e) { return e.id === borrowItem.id; }) || borrowItem;
       return actions.updateEquipment(borrowItem.id, { availableQuantity: Math.max(0, (eq.availableQuantity || 0) - qty) });
     }).then(function() {
       setSubmitting(false);
       setBorrowItem(null);
-      setSuccessMsg('✅ ส่งคำขอยืม "' + req.equipmentName + '" เรียบร้อยแล้ว');
+      setSuccessMsg(isAdvisor ? ('✅ ยืม "' + req.equipmentName + '" สำเร็จ (บันทึกทันที)') : ('✅ ส่งคำขอยืม "' + req.equipmentName + '" เรียบร้อยแล้ว'));
       setTimeout(function() { setSuccessMsg(''); }, 4000);
-    }).catch(function(e) { setSubmitting(false); setMsg('⚠ ส่งคำขอไม่สำเร็จ'); });
+    }).catch(function(e) { setSubmitting(false); setMsg(isAdvisor ? '⚠ ยืมไม่สำเร็จ' : '⚠ ส่งคำขอไม่สำเร็จ'); });
   };
 
   var setF = function(key, val) { setBorrowForm(function(f) { return Object.assign({}, f, { [key]: val }); }); };
@@ -352,7 +358,7 @@ window.StudentEquipmentCatalog = function() {
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 } },
         React.createElement('div', {},
           React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '📦 คลังอุปกรณ์คณิตศาสตร์'),
-          React.createElement('p', { style: { fontSize: 14, color: '#6b7280', marginTop: 4 } }, 'คลิกที่อุปกรณ์เพื่อส่งคำขอยืม')
+          React.createElement('p', { style: { fontSize: 14, color: '#6b7280', marginTop: 4 } }, isAdvisor ? 'คลิกที่อุปกรณ์เพื่อยืม (บันทึกทันที ไม่ต้องรออนุมัติ)' : 'คลิกที่อุปกรณ์เพื่อส่งคำขอยืม')
         ),
         React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหาอุปกรณ์...', value: catSearch, onChange: function(e) { setCatSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, flex: '1 1 160px', minWidth: 0, maxWidth: 260, boxSizing: 'border-box' } })
       ),
@@ -797,6 +803,95 @@ window.AdvisorReturnTrackingView = function() {
         })
       )
     )
+  );
+};
+
+// ---- Admin: Borrow History (ประวัติการยืม-คืนทั้งหมด + ลบได้) ----
+window.AdminBorrowHistoryView = function() {
+  var ctx = window.useApp();
+  var state = ctx.state; var actions = ctx.actions;
+  var allRequests = state.borrowRequests || [];
+  var equipment = state.equipment || [];
+
+  var [search, setSearch] = React.useState('');
+  var [statusFilter, setStatusFilter] = React.useState('all');
+  var [deleteTarget, setDeleteTarget] = React.useState(null);
+
+  var statusMap = {
+    pending:  { label: 'รออนุมัติ',   color: '#d97706', bg: 'rgba(245,158,11,0.15)' },
+    approved: { label: 'อนุมัติ/ยืมอยู่', color: '#1d4ed8', bg: 'rgba(59,130,246,0.15)' },
+    returned: { label: 'คืนแล้ว',      color: '#6b7280', bg: 'rgba(107,114,128,0.15)' },
+    rejected: { label: 'ปฏิเสธ',       color: '#dc2626', bg: 'rgba(239,68,68,0.15)' }
+  };
+
+  var filtered = allRequests.filter(function(r) {
+    if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+    if (!search) return true;
+    var q = search.toLowerCase();
+    return (r.studentName || '').toLowerCase().indexOf(q) >= 0 || (r.studentCode || '').toLowerCase().indexOf(q) >= 0 || (r.equipmentName || '').toLowerCase().indexOf(q) >= 0;
+  });
+
+  var doDelete = function() {
+    var req = deleteTarget; if (!req) return;
+    setDeleteTarget(null);
+    actions.deleteBorrowRequest(req.id).then(function() {
+      // ถ้ายังจองสต็อกอยู่ (รออนุมัติ/ยืมอยู่) ให้คืนสต็อกกลับด้วย
+      if (req.status === 'pending' || req.status === 'approved') {
+        var eq = equipment.find(function(e) { return e.id === req.equipmentId; });
+        if (eq) return actions.updateEquipment(eq.id, { availableQuantity: Math.min(eq.totalQuantity || 0, (eq.availableQuantity || 0) + (req.quantity || 1)) });
+      }
+    }).catch(function(e) { alert('⚠ ลบไม่สำเร็จ: ' + (e && e.message ? e.message : 'กรุณาลองใหม่')); });
+  };
+
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', { className: 'fade-in', style: { padding: '8px 4px', maxWidth: 1000, margin: '0 auto' } },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 } },
+        React.createElement('div', {},
+          React.createElement('h1', { style: { fontSize: 22, fontWeight: 800, color: '#1f2937' } }, '🧾 ประวัติการยืม-คืนอุปกรณ์'),
+          React.createElement('p', { style: { fontSize: 13, color: '#6b7280', marginTop: 4 } }, 'ทั้งหมด ' + allRequests.length + ' รายการ')
+        )
+      ),
+      React.createElement('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' } },
+        React.createElement('input', { className: 'glass-input', placeholder: '🔍 ค้นหา ผู้ยืม/รหัส/อุปกรณ์...', value: search, onChange: function(e) { setSearch(e.target.value); }, style: { padding: '9px 14px', fontSize: 14, flex: '1 1 200px', minWidth: 0, boxSizing: 'border-box' } }),
+        React.createElement('select', { className: 'glass-input', value: statusFilter, onChange: function(e) { setStatusFilter(e.target.value); }, style: { padding: '9px 12px', fontSize: 14, boxSizing: 'border-box' } },
+          React.createElement('option', { value: 'all' }, 'ทุกสถานะ'),
+          React.createElement('option', { value: 'pending' }, 'รออนุมัติ'),
+          React.createElement('option', { value: 'approved' }, 'อนุมัติ/ยืมอยู่'),
+          React.createElement('option', { value: 'returned' }, 'คืนแล้ว'),
+          React.createElement('option', { value: 'rejected' }, 'ปฏิเสธ')
+        )
+      ),
+      React.createElement('div', { className: 'glass-card', style: { overflowX: 'auto', padding: 0 } },
+        React.createElement('table', { className: 'glass-table', style: { minWidth: 720 } },
+          React.createElement('thead', {}, React.createElement('tr', {},
+            ['ผู้ยืม', 'อุปกรณ์', 'จำนวน', 'ยืม → คืน', 'สถานะ', 'วันที่ขอ', 'ลบ'].map(function(h) { return React.createElement('th', { key: h, style: { textAlign: h === 'จำนวน' || h === 'ลบ' ? 'center' : 'left' } }, h); })
+          )),
+          React.createElement('tbody', {},
+            filtered.length === 0
+              ? React.createElement('tr', {}, React.createElement('td', { colSpan: 7, style: { textAlign: 'center', color: '#9ca3af', padding: 32 } }, 'ไม่พบรายการ'))
+              : filtered.map(function(r) {
+                  var sm = statusMap[r.status] || statusMap.pending;
+                  return React.createElement('tr', { key: r.id },
+                    React.createElement('td', {}, React.createElement('div', { style: { fontSize: 13, fontWeight: 600 } }, r.studentName), React.createElement('code', { style: { fontSize: 11, color: '#9ca3af' } }, r.studentCode || r.studentId)),
+                    React.createElement('td', { style: { fontSize: 14 } }, r.equipmentName),
+                    React.createElement('td', { style: { textAlign: 'center', fontWeight: 700 } }, r.quantity),
+                    React.createElement('td', { style: { fontSize: 13, color: '#6b7280' } }, (r.borrowDate || '-') + ' → ' + (r.returnDate || '-')),
+                    React.createElement('td', {}, React.createElement('span', { style: { fontSize: 12, fontWeight: 700, color: sm.color, background: sm.bg, padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap' } }, sm.label)),
+                    React.createElement('td', { style: { fontSize: 12, color: '#9ca3af' } }, r.createdAt ? r.createdAt.substring(0, 10) : '-'),
+                    React.createElement('td', { style: { textAlign: 'center' } }, React.createElement('button', { className: 'btn-danger', style: { padding: '5px 10px', fontSize: 12 }, onClick: function() { setDeleteTarget(r); } }, '🗑️'))
+                  );
+                })
+          )
+        )
+      )
+    ),
+    React.createElement(window.ConfirmDialog, {
+      open: !!deleteTarget,
+      title: 'ลบประวัติการยืม',
+      message: deleteTarget ? ('ลบรายการ "' + deleteTarget.equipmentName + '" ของ ' + deleteTarget.studentName + '?' + ((deleteTarget.status === 'pending' || deleteTarget.status === 'approved') ? '\n(ยอดคงเหลือจะถูกคืนกลับให้อัตโนมัติ)' : '')) : '',
+      onConfirm: doDelete,
+      onCancel: function() { setDeleteTarget(null); }
+    })
   );
 };
 
